@@ -2,7 +2,11 @@
 SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
 SPDX-License-Identifier: MIT
 -->
-![bemorehuman logo](/bemorehuman/assets/logo.svg "some title")
+<!---  ![bemorehuman logo](/assets/logo.svg?raw=true "bemorehuman logo")  -->
+
+<p align="center">
+<img src="/assets/logo.svg" width=15% height=15%>
+</p>
 
 ## What does bemorehuman do?
 
