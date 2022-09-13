@@ -38,7 +38,7 @@ Contact us at hi@bemorehuman.org or visit http://bemorehuman.org
 
 ## Contributing
 
-You can help by commenting on or addressing the [current issues](https://github.com/BeMoreHumanOrg/bemorehuman/issues)
+You can help by commenting on or addressing the [current issues](https://github.com/BeMoreHumanOrg/bemorehuman/issues).
 Feature requests are welcome, too. Check out the [discussions](https://github.com/BeMoreHumanOrg/bemorehuman/discussions) and ask away.
 
 ## Licensing
