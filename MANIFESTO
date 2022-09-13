@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
+#
+# SPDX-License-Identifier: MIT
+
+bemorehuman manifesto
+======================
+
+1. True individuality -- The web offers the ability to have truly customised
+content delivery. The promise of "meaningful content recommendations tailored 
+to my interests" has been an unfulfilled promise for many years. We need to
+go far beyond simple category-based or "what other people liked" types of
+personalized content. By treating people as unique individuals, only then can
+technology be built that caters to our own uniqueness. When it works, the result
+is often seemingly magical.
+
+2. Domain knowledge or not -- We believe the best way to build a system to
+recommend things is to assume the technology is domain independent. That is, the
+bemorehuman system does not know anything about what it's recommending other
+than the anonymous id of the thing in question. This avoids categories of issues
+related to determining attributes of things which are highly subjective and
+cannot be abstracted into a computer model. By being domain independent
+bemorehuman canrecommend anything given the right expression of preference input
+(ratings, purchases, clicks, etc).
+
+3. "How do I find out about new stuff?" -- Discovery can mean "similar things"
+or "new things." Often that line is blurry or as recommendation recipients we
+don't care about that distinction. Sometimes we do. How to distinguish? We
+believe that line should be ignored. Determining similarity or difference of
+things requires domain knowledge which we want to avoid. We think a better way
+to solve this issue is to only care about human behaviour: how do people
+interact with things? And more specifically, how do people interact with pairs
+of things? These valences, or pairwise affinities/repulsions, are at the core
+of bemorehuman. 
+
+4. Everything's connected -- How do you capture subtle interactions or unknown
+relations among items? If you combine the above concepts around domain
+independence and respecting human individuality with ever-increasing compute
+power, then we can recommend from bigger and bigger domains. If we have a
+diligent focus on tight, compute and memory efficient data structures then we
+are well-suited to recommend things faster and from larger pools of content.
+Currently bemorehuman can comfortably recommend from a pool size of up to a
+million items without scaling beyond a single machine. We constantly anticipate
+larger and larger domains from which to recommend and the tech must always
+reflect this concept.
+
+5. Obscure vs. popular -- Sometimes we want to be recommended popular things.
+Other times we want to learn about obscure things. This concept applies
+particularly well to recommending music. If you allow the person receiving the
+recommendation to choose the relative popularity of recommendations, that will
+help make the recommendations better overall. The bemorehuman technology treats
+desired popularity as a filter to be applied just before delivering the
+recommendation. In this manner, popularity can be treated as a simple attribute
+such as colour or size to allow for filtering of recommendations based on what
+the person wants. We believe that applying these post-processing filters is a
+better approach than trying to incorporate attributes of popularity, size,
+colour, etc. into the core recommendation tech itself -- that would be domain
+knowledge which we do not want in the core.
+
+6. Simplicity of AI -- One of the goals of bemorehuman is to show just how
+simple AI can be. For example, linear regression is one of the few core math
+concepts behind bemorehuman. A big part of the "magic" of recommender systems
+such as bemorehuman is to compress the world down to something manageable that
+a computer can manipulate quickly and then suggest something relevant to a
+person. This can be incredibly difficult to achieve and requires significant
+work to do well. The difficulty is mostly around traditional software work of
+memory and compute optimization in the form of data structure size and
+manipulation. The end result, a great recommendation, combines all of the above
+in a way that looks like magic.
+
+7. No unnecessary complexity -- Related to previous concept is the idea that
+bemorehuman constantly strives to be simple. Complexity is to be avoided as
+much as possible. Life is too short to pretend that complexity itself is
+desirable or somehow advantageous. It's important that the technology always
+respect the person receiving the recommendations as well as shows respect for
+the developers working on the code. This form of respect comes in the way of
+preferring simplicity over undue complexity in every instance. Let the compiler
+get the last bit of optimization and keep the code more human-readable.
+
+8. Tight data structures -- Compressing the world relies on having minimal and
+functionally efficient data structures. This is one of the essential concepts
+behind bemorehuman. We constantly try to balance maximizing the number of pool
+items to be recommended against runtime speed of recommendation generation. Over
+time, we've seen the biggest speed improvements to come from data structure
+optimization as opposed to any other form of optimization.
+
+9. Scaling machines -- Our focus is currently on one machine performing all
+bemorehuman operations because we believe a simple self-contained system is the
+best way to model different usages. From small single-purpose devices up to
+massive distributed systems -- bemorehuman can function well in many
+environments due to its simplicity. We try to address scalability from the
+standpoint of the general question: "How can we recommend more things to
+people?" We have implemented things like arbitrary-size pool valence generation
+which could be spread across multiple machines fairly easily. We expect that
+multi-machine coordination and marshalling should be manageable though we have
+not explicitly addressed that yet.
+
+10. Approximations are ok -- Not everything needs to be fully calculated at
+recommendation generation time. To reduce calculations and/or memory footprint,
+we can, use indexes that refer to previously calculated things. For example in
+bemorehuman we approximate the slopes and offsets of the best-fit lines that are
+part of a valence. These approximations are dataset dependent and represent the
+most popular shapes of lines for that dataset. In doing this, we can reduce the
+world of possible representations of a line down to 4 bits for slope and 4 bits
+for offset without a significant loss of recommendation accuracy.
+
+11. Sum of the parts -- We call the collection of the above points "practical
+magic." The received recommendation might be perceived as magical and since
+perception defines reality, it is magic. To make the magic requires lots of
+attention to detail and a respect for the person receiving the recommendation.
+For example, if we focus on recommending from larger and larger pools of items,
+we can offer then person receiving the recommendation more choices tuned to
+what they want. In turn, such focus would be a good way to achieve performance
+gains that can apply to recommendations from any pool size and in any physical
+environment from mobile phones to data centres.

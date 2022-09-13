@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
+#
+# SPDX-License-Identifier: CC0-1.0
+#
+# This file is part of bemorehuman. See https://bemorehuman.org
+
+*.o
+*~
+.DS_Store
+
+/valgen
+build
+cmake-build-debug
+
+# JetBrains User-specific stuff:
+.idea/workspace.xml
+.idea/tasks.xml
+
+# JB Sensitive or high-churn files:
+.idea/dataSources.ids
+.idea/dataSources.xml
+.idea/dataSources.local.xml
+.idea/sqlDataSources.xml
+.idea/dynamic.xml
+.idea/uiDesigner.xml

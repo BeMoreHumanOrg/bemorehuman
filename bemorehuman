@@ -1,0 +1,138 @@
+#!/bin/sh
+
+# SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
+#
+# SPDX-License-Identifier: MIT
+#
+# MIT License
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+# of the Software, and to permit persons to whom the Software is furnished to do
+# so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+# IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+# This file is part of bemorehuman. See https://bemorehuman.org
+
+#
+# This is the bemorehuman script, the main entry point into the
+# bemorehuman recommendation system.
+#
+# If you are starting with purchases or click events, you'll want to
+# choose the "implicit" choices below. Implicit means "implicit ratings."
+# The first step in the implicit choices is to generate ratings.
+#
+# If you are starting with ratings such as user ratings of movies, you'll
+# want to choose the "explicit" choices below. Explicit means "explicit
+# ratings."
+#
+# To generate ratings, valences, run the live recommender, and perform
+# some accuracy testing for a 5-bucket recommendation scale, run the
+# implicit-5-scale option:
+#
+#   bemorehuman imp5
+#
+# To generate ratings, valences, run the live recommender, and perform
+# some accuracy testing for a 32-bucket recommendation scale, run the
+# implicit-32-scale option:
+#
+#   bemorehuman imp32
+#
+# To generate valences, run the live recommender, and perform
+# some accuracy testing for a 5-bucket recommendation scale, run the
+# explicit-5-scale option:
+#
+#   bemorehuman exp5
+#
+# To generate valences, run the live recommender, and perform
+# some accuracy testing for a 10-bucket recommendation scale, run the
+# explicit-10-scale option:
+#
+#   bemorehuman exp10
+#
+case $1 in
+     imp5)
+	 ratgen &     # create the ratings
+	 wait $!
+	 valgen &     # create the valences
+	 wait $!
+	 recgen -c &  # create the valence cache
+	 wait $!
+	 recgen -d &  # create the valence ds cache
+	 wait $!
+	 recgen &     # start the live recommender
+	 sleep 2
+	 cd ~/src/bemorehuman/test-accuracy
+	 ./test-accuracy -g &
+	 wait $!
+	 ./test-accuracy -n 10 &
+	 wait $!
+	 ;;
+     
+     imp32)
+	 ratgen &     # create the ratings
+	 wait $!
+	 valgen &     # create the valences
+	 wait $!
+	 recgen -c &  # create the valence cache
+	 wait $!
+	 recgen -d &  # create the valence ds cache
+	 wait $!
+	 recgen -b 32 &  # start the live recommender
+	 sleep 2
+	 cd ~/src/bemorehuman/test-accuracy
+	 ./test-accuracy -g -r 32 &
+	 wait $!
+	 ./test-accuracy -n 10 -r 32 &
+	 wait $!
+	 ;;
+     
+     exp5)
+	 valgen -r 5 &   # create the valences
+	 wait $!
+	 recgen -c &  # create the valence cache
+	 wait $!
+	 recgen -d &  # create the valence ds cache
+	 wait $!
+	 recgen &     # start the live recommender
+	 sleep 2
+	 cd ~/src/bemorehuman/test-accuracy
+	 ./test-accuracy -g &
+	 wait $!
+	 ./test-accuracy -n 10 &
+	 wait $!
+	 ;;
+	 
+     exp10)
+	 valgen -r 10 &   # create the valences
+	 wait $!
+	 recgen -c &  # create the valence cache
+	 wait $!
+	 recgen -d &  # create the valence ds cache
+	 wait $!
+	 recgen -b 10 & # start the live recommender with output buckets on 10-scale
+	 sleep 2
+	 cd ~/src/bemorehuman/test-accuracy
+	 ./test-accuracy -g -r 10 &
+	 wait $!
+	 ./test-accuracy -r 10 -n 10 &
+	 wait $!
+	 ;;
+     
+     *)
+	 echo Usage: `basename $0` [imp5] [imp32] [exp5] [exp10]
+	 ;;
+esac
+
+exit 0
