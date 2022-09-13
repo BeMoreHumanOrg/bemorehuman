@@ -42,7 +42,7 @@ bemorehuman is open source, released under the MIT license. See the LICENSE file
 https://opensource.org/licenses/MIT for details. Contributions to this project are
 accepted under the same or similar license. Individual files contain SPDX tags to
 identify copyright and license information which allow this project to be machine-readable
-for license details.
+for license details. bemorehuman is fully Reuse Software-compliant.
 
 
 ## Installation instructions for bemorehuman
