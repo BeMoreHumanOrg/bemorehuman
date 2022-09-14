@@ -46,7 +46,7 @@ To help foster a welcoming community, we've adopted the Contributor Covenant [Co
 
 ## Licensing
 
-bemorehuman is open source, released under the MIT license. See the LICENSE file or
+bemorehuman is open source, released under the MIT license. See the COPYING file or
 https://opensource.org/licenses/MIT for details. Contributions to this project are
 accepted under the same or similar license. Individual files contain SPDX tags to
 identify copyright and license information which allow this project to be machine-readable
