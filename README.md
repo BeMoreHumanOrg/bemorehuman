@@ -2,8 +2,6 @@
 SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
 SPDX-License-Identifier: MIT
 -->
-<!---  ![bemorehuman logo](/assets/logo.svg?raw=true "bemorehuman logo")  -->
-
 <p align="center">
 <img src="/assets/logo.svg" width=15% height=15%>
 </p>
@@ -35,7 +33,7 @@ https://github.com/BeMoreHumanOrg/bemorehuman/discussions
 
 For motivations behind the source code:
 
-See the MANIFESTO file.
+See the [MANIFESTO](https://github.com/BeMoreHumanOrg/bemorehuman/MANIFESTO) file.
 
 For custom support, development, or training:
 
@@ -45,6 +43,8 @@ Contact us at hi@bemorehuman.org or visit http://bemorehuman.org
 
 You can help by commenting on or addressing the [current issues](https://github.com/BeMoreHumanOrg/bemorehuman/issues).
 Feature requests are welcome, too. Check out the [discussions](https://github.com/BeMoreHumanOrg/bemorehuman/discussions) and ask away.
+
+To help foster a welcoming community, we've adopted the Contributor Covenant [Code of Conduct](https://github.com/BeMoreHumanOrg/bemorehuman/CODE_OF_CONDUCT.md).
 
 ## Licensing
 
