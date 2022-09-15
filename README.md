@@ -230,7 +230,7 @@ is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf file. Def
   - test your installation with the GroupLens data
 - Given that you've followed Step 5 above, you invoke bemorehuman like so:
 
-    ~/src/bemorehuman/bemorehuman exp10            # takes about 7 min
+      ~/src/bemorehuman/bemorehuman exp10            # takes about 7 min
 
 - There are more ways to run the bemorehuman script (and its components) epending on your situation. See the
 bemorehuman script and source files for more details.
