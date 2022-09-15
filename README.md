@@ -141,8 +141,8 @@ test-accuracy
 
 ### STEP 3: Make working directory.
 
-sudo mkdir /opt/bemorehuman
-sudo chown <user who'll run bemorehuman> /opt/bemorehuman
+    sudo mkdir /opt/bemorehuman
+    sudo chown <user who'll run bemorehuman> /opt/bemorehuman
 
 ### STEP 4: Integrate with a webserver.
 
@@ -196,25 +196,25 @@ To prepare the Movielens data:
 - Unzip the data file to any local directory you like such as ~/data
 - Copy ~/src/bemorehuman/valgen/convert_to_ints.sh to the directory where the just-unpacked ratings.csv is.
 
-    cd ~/data/movielens/ml-25m
-    cp ~/src/bemorehuman/valgen/convert_to_ints.sh .
+      cd ~/data/movielens/ml-25m
+      cp ~/src/bemorehuman/valgen/convert_to_ints.sh .
 
 - Run the valgen script "convert_to_ints.sh" in the Movielens data dir
 
-    ./convert_to_ints.sh                    # takes about 10 seconds
+      ./convert_to_ints.sh                    # takes about 10 seconds
     
 - Copy the new Grouplens ratings data file ratings.out to the bemorehuman working directory. This dir
 is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf file. Default is /opt/bemorehuman
 
-    cp ratings.out /opt/bemorehuman
+      cp ratings.out /opt/bemorehuman
 
 - Copy and run "normalize.sh" in /opt/bemorehuman. This script will ensure the movie ids are in sequence,
   which is important. This script also creates a little translation file so you can match original Grouplens
   id's to new bemorehuman id's. This file is called bmhid-glid.out
 
-    cd /opt/bemorehuman
-    cp ~/src/bemorehuman/valgen/normalize.sh .
-    ./normalize.sh                          # takes about a minute  
+      cd /opt/bemorehuman
+      cp ~/src/bemorehuman/valgen/normalize.sh .
+      ./normalize.sh                          # takes about a minute  
 
 - Now the Movielens data is ready to be run through bemorehuman.
 
