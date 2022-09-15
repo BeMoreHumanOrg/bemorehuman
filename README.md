@@ -52,6 +52,7 @@ accepted under the same or similar license. Individual files contain SPDX tags t
 identify copyright and license information which allow this project to be machine-readable
 for license details. bemorehuman is fully Reuse Software-compliant.
 
+[![REUSE status](https://api.reuse.software/badge/github.com/BeMoreHumanOrg/bemorehuman)](https://api.reuse.software/info/github.com/BeMoreHumanOrg/bemorehuman)
 
 ## Installation instructions for bemorehuman
 
