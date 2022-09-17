@@ -22,6 +22,96 @@ ecommerce stores want to recommend things to visitors and shoppers. These recomm
 can appear on a website, in email, in a feed, or really whereever a person interacts with
 the company or brand.
 
+## How it works
+
+Here is a simple example of how bemorehuman works:
+
+- What do you want to recommend? Is it books? Movies? Classified ads? Things that work well
+are things that are unique, don't change, and have a persistent id. And of course you need
+the legal right to use that data for your specific purposes. For example, "red wine" isn't
+a good thing to recommend because there are lots of diffent red wines. But "Seifried Nelson
+Pinot Noir 2020" is a good thing to recommend because it's a unique thing. In the
+installation instructions below we show an example of how you can recommend movies.
+
+- The input to bemorehuman is a list of 3-value anonymous events. An event would be like:
+"person 2637 gave product 312 a rating of 4." So the input file would look like
+
+2637  312  4  <-- this is the event mentioned above
+311   3363 2  <-- next event
+1288  778  5  <-- next event
+...and so on
+
+- The ratings (it doesn't have to be ratings; we can use purchases, clicks, etc.) file from
+the previous bullet is used as input to the valence generator, valgen. A valence is just a
+pairwise relationship between two things. The valence indicates strength or weakness of
+connectivity between those two things. We use simple statistical methods like linear
+regression and correlation coefficients to determine the bond between two things.
+
+- Once valences are generated, they get loaded into memory so that the runtime recommender,
+recgen, doesn't have to compute those valences when recommending. In general, recgen will find
+the most highly correlated items to what the peron already knows about. Recgen does not know
+anything about the category of what it's recommending. So if recgen is recommending wines,
+it won't know anything about wines, nor that it's even recommending wines. It just knows about
+the valences which reprensent anonymous things.
+
+- Recgen receives a request for recommendations via a REST API call. For example, your website
+visitor might want to receive a recommendation for wine. You know from your user database
+that this person has rated, say, 4 wines in the past. Your web server makes a POST request to
+the recgen process running somewhere on your infrastructure. About, say, 25 milliseconds later
+recgen responds with an ordered list of the top 20 recommended wines for your website visitor.
+
+- Your website decides how best to display the top 2 or 3 recommendations and maybe offers a
+discount on purchase of those.
+
+- That's it! In the installation instructions below, we flesh this out a bit more with a
+concrete example of recommending movies and show you how you can generate recommendations
+yourself.
+
+## What's special about bemorehuman?
+
+We focus on making bemorehuman the best recommender it can be, based on the core principle of
+focusing on the person receiving the rec and what would be interesting to them. Here's a list
+of things we think make us special. Some of these things we have in common with other
+recommenders, of course.
+
+- Unique codebase - Our codebase is not modelled on anything else nor is it an
+implementation of any particular recommendation technique. We wrote the code from the ground
+up based on our own ideas about what's important in a recommendation.
+
+- Focused on receiver of rec - We are not focused on the marketer/advertiser side of the
+equation. We think that the only way to provide a good recommendation is to be 100% focused
+on what the receiver might want. The web has too much possibility to only offer people mass-
+marketed or even group-marketed content.
+
+- Recommendations based on popularity - On a per-recommendation basis, bemorehuman allows you
+to only show recommendations that are at a certain level of popularity. Sometimes people want
+to see obscure things or sometimes we want to see popular things. It's very easy to tell
+the recommendations generator "only give me recommendations of fairly obscure things."
+
+- Recommendations using different scales - For a particular dataset, you can choose what the
+ratings scale is. Maybe for one dataset you want to use a ratings scale of 1-5 becuase you
+have "whole star ratings" where people can rate from 1-5 stars for things. Maybe for a
+different dataset you want to be more expressive with your data and you want a 1-32 scale.
+Using such a scale gives you more subtelty and gradations in the recommendations. It also
+might help with the accuracy to give the algrorithms more room to breathe, so to speak.
+
+- Tested in real-world scenarios - Prior to open sourcing bemorehuman, it was used
+commercially to recommend content across different datasets such as supermarket items, books,
+beer, and movies. 
+
+- Open source under a liberal license - bemorehuman is licensed under the MIT license which
+allows for a wide range of usage in your public or private project. See the COPYING file
+for more info.
+
+- Reuse Software compliance - Reuse Software at https://reuse.software is an effort that allows
+companies (or anyone, really) to undestand more clearly how an open source project stacks
+up from a licensing perspective. If a company is trying to figure out whether or not to
+adopt an open source project internally, technical capability is often only one concern.
+A big concern might be legal: do the lawyers give the thumbs-up for company adoption of the
+OSS? Reuse Software compliance is something that helps legal teams do their analysis.
+bemorehuman is fully Reuse Software compliant. That's important to us to help companies or
+anyone else interested to adopt our software.
+
 ## Where can I find out more?
 
 For help getting started with the code:
