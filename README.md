@@ -34,12 +34,12 @@ Pinot Noir 2020" is a good thing to recommend because it's a unique thing. In th
 installation instructions below we show an example of how you can recommend movies.
 
 - The input to bemorehuman is a list of 3-value anonymous events. An event would be like:
-"person 2637 gave product 312 a rating of 4." So the input file would look like
+"person 2637 gave product 312 a rating of 4." So the input file would look like:
 
-2637  312  4  <-- this is the event mentioned above
-311   3363 2  <-- next event
-1288  778  5  <-- next event
-...and so on
+      2637  312  4  <-- this is the event mentioned above
+      311   3363 2  <-- next event
+      1288  778  5  <-- next event
+      ...and so on
 
 - The ratings (it doesn't have to be ratings; we can use purchases, clicks, etc.) file from
 the previous bullet is used as input to the valence generator, valgen. A valence is just a
