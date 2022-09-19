@@ -1,6 +1,6 @@
 <!---
 SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
-SPDX-License-Identifier: CC-1.0
+SPDX-License-Identifier: CC0-1.0
 -->
 
 ---
