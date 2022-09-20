@@ -131,6 +131,7 @@ Contact us at hi@bemorehuman.org or visit https://bemorehuman.org
 
 You can help by commenting on or addressing the [current issues](https://github.com/BeMoreHumanOrg/bemorehuman/issues).
 Feature requests are welcome, too. Check out the [discussions](https://github.com/BeMoreHumanOrg/bemorehuman/discussions) and ask away.
+See our [CONTRIBUTING](/CONTRIBUTING.md) file for more details.
 
 To help foster a welcoming community, we've adopted the Contributor Covenant [Code of Conduct](/CODE_OF_CONDUCT.md).
 
