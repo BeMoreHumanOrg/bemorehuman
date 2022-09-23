@@ -257,6 +257,96 @@ void   recs_response__free_unpacked
   assert(message->base.descriptor == &recs_response__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   event__init
+                     (Event         *message)
+{
+  static const Event init_value = EVENT__INIT;
+  *message = init_value;
+}
+size_t event__get_packed_size
+                     (const Event *message)
+{
+  assert(message->base.descriptor == &event__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t event__pack
+                     (const Event *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &event__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t event__pack_to_buffer
+                     (const Event *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &event__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Event *
+       event__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Event *)
+     protobuf_c_message_unpack (&event__descriptor,
+                                allocator, len, data);
+}
+void   event__free_unpacked
+                     (Event *message,
+                      ProtobufCAllocator *allocator)
+{
+  if(!message)
+    return;
+  assert(message->base.descriptor == &event__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   event_response__init
+                     (EventResponse         *message)
+{
+  static const EventResponse init_value = EVENT_RESPONSE__INIT;
+  *message = init_value;
+}
+size_t event_response__get_packed_size
+                     (const EventResponse *message)
+{
+  assert(message->base.descriptor == &event_response__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t event_response__pack
+                     (const EventResponse *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &event_response__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t event_response__pack_to_buffer
+                     (const EventResponse *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &event_response__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+EventResponse *
+       event_response__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (EventResponse *)
+     protobuf_c_message_unpack (&event_response__descriptor,
+                                allocator, len, data);
+}
+void   event_response__free_unpacked
+                     (EventResponse *message,
+                      ProtobufCAllocator *allocator)
+{
+  if(!message)
+    return;
+  assert(message->base.descriptor == &event_response__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 static const ProtobufCFieldDescriptor internal_single_rec__field_descriptors[2] =
 {
   {
@@ -523,5 +613,120 @@ const ProtobufCMessageDescriptor recs_response__descriptor =
   recs_response__field_indices_by_name,
   1,  recs_response__number_ranges,
   (ProtobufCMessageInit) recs_response__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor event__field_descriptors[3] =
+{
+  {
+    "personid",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(Event, personid),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "elementid",
+    2,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(Event, elementid),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "eventval",
+    3,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(Event, eventval),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned event__field_indices_by_name[] = {
+  1,   /* field[1] = elementid */
+  2,   /* field[2] = eventval */
+  0,   /* field[0] = personid */
+};
+static const ProtobufCIntRange event__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 3 }
+};
+const ProtobufCMessageDescriptor event__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "Event",
+  "Event",
+  "Event",
+  "",
+  sizeof(Event),
+  3,
+  event__field_descriptors,
+  event__field_indices_by_name,
+  1,  event__number_ranges,
+  (ProtobufCMessageInit) event__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor event_response__field_descriptors[2] =
+{
+  {
+    "result",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_INT32,
+    0,   /* quantifier_offset */
+    offsetof(EventResponse, result),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "status",
+    2,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(EventResponse, status),
+    NULL,
+    &protobuf_c_empty_string,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned event_response__field_indices_by_name[] = {
+  0,   /* field[0] = result */
+  1,   /* field[1] = status */
+};
+static const ProtobufCIntRange event_response__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor event_response__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "EventResponse",
+  "EventResponse",
+  "EventResponse",
+  "",
+  sizeof(EventResponse),
+  2,
+  event_response__field_descriptors,
+  event_response__field_indices_by_name,
+  1,  event_response__number_ranges,
+  (ProtobufCMessageInit) event_response__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

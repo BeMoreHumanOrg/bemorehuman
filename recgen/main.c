@@ -367,6 +367,117 @@ static void recs(FCGX_Request request)
 } // end recs()
 
 
+//
+// Ingest an event such as a rating, listen, purchase, click, etc.
+// output: success or failure
+//
+static void event(FCGX_Request request)
+{
+    // input: userid, eltid, (optional) event_value such as a rating
+    // output: success or failure
+    // 2 steps:
+    // 1. Persist input event to filesystem.
+    // 2. Construct & send protobuf output.
+
+    EventResponse pb_response = EVENT_RESPONSE__INIT;              // declare the response
+    void *buffer = NULL;                                         // this is the output buffer
+    size_t len = 0;
+    pb_response.status = malloc(sizeof(char) * STATUS_LEN);
+
+    int bytes_to_fcgi;
+
+    uint8_t post_data[FCGX_MAX_INPUT_STREAM_SIZE];
+
+    // Get the POSTed protobuf.
+    size_t post_len;
+    post_len = (size_t) FCGX_GetStr((char *) post_data, sizeof(post_data), request.in);
+
+    // Now we are ready to decode the message.
+    uint32_t personid = 0;
+    uint32_t elementid = 0;
+    uint32_t eventval = 0;
+
+    // 1. Persist input event to filesystem.
+
+    Event *message_in;
+    message_in = event__unpack(NULL, post_len, post_data);
+    // Check for errors
+    if (message_in == NULL)
+    {
+        syslog(LOG_ERR, "Protobuf decoding failed for event() invocation.");
+        strlcpy(pb_response.status, "Protobuf decoding failed for event() invocation.", sizeof(pb_response.status));
+        len = event_response__get_packed_size(&pb_response);
+        buffer = malloc(len);
+        event_response__pack(&pb_response, buffer);
+        goto finish_up;
+    }
+    // Does the passed-in personid not match any people we know about?
+    if (message_in->personid < 0 || message_in->personid > BE.num_people)
+    {
+        syslog(LOG_ERR, "personid from client is incorrect: ---%d---", message_in->personid);
+        sprintf(pb_response.status, "personid from client is incorrect: %d", message_in->personid);
+        len = event_response__get_packed_size(&pb_response);
+        buffer = malloc(len);
+        event_response__pack(&pb_response, buffer);
+        goto finish_up;
+    }
+    personid = message_in->personid;
+
+    // Does the passed-in elementid not match any element we know about?
+    if (message_in->elementid < 0 || message_in->elementid > BE.num_elts)
+    {
+        syslog(LOG_ERR, "elementid from client is incorrect: ---%d---", message_in->elementid);
+        sprintf(pb_response.status, "elementid from client is incorrect: %d", message_in->elementid);
+        len = event_response__get_packed_size(&pb_response);
+        buffer = malloc(len);
+        event_response__pack(&pb_response, buffer);
+        goto finish_up;
+    }
+    elementid = message_in->elementid;
+
+    // Does the passed-in eventval not match a valid eventval?
+    if (message_in->eventval && message_in->eventval < 1)
+    {
+        syslog(LOG_ERR, "eventval from client is incorrect: ---%d---", message_in->eventval);
+        sprintf(pb_response.status, "eventval from client is incorrect: %d", message_in->eventval);
+        len = event_response__get_packed_size(&pb_response);
+        buffer = malloc(len);
+        event_response__pack(&pb_response, buffer);
+        goto finish_up;
+    }
+
+    if (message_in->eventval) eventval = message_in->eventval;
+
+    event__free_unpacked(message_in, NULL);
+
+    // Are we ready to persist now?
+    if (counter > 100)
+    {
+        // Dump the events to flat fileZ
+    }
+
+
+
+
+
+    // 2. Finish constructing response
+    strlcpy(pb_response.status, "ok", sizeof(pb_response.status));
+
+    // Send the protobuf to the client.
+    finish_up:
+    bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, request.out);
+    if (bytes_to_fcgi != (int) len)
+        syslog(LOG_ERR,
+               "ERROR: in recs, bytes_to_fcgi is %d while message_length is %lu",
+               bytes_to_fcgi, len);
+
+    // Free protobuf allocations.
+    free(buffer);                          // Free the allocated serialized buffer
+    free(pb_response.status);
+
+} // end event()
+
+
 // Eecute this callback per thread, with an infinite loop inside that will receive requests
 // NOTE: clang understands the GCC pragma, but not vice-versa! So do it this way.
 #pragma GCC diagnostic push
@@ -392,15 +503,24 @@ static void *start_fcgi_worker(void *arg)
 
         size_t len_request_uri = strlen(request_uri);
 
+        // /internal-singlerec call
         if ((23 == len_request_uri) && (!strcmp("/bmh/internal-singlerec", request_uri)))
         {
             internal_singlerec(request);
             goto cleanup;
         }
 
+        // /recs call
         if ((9 == len_request_uri) && (!strcmp("/bmh/recs", request_uri)))
         {
             recs(request);
+            goto cleanup;
+        }
+
+        // /event call
+        if ((10 == len_request_uri) && (!strcmp("/bmh/event", request_uri)))
+        {
+            event(request);
             goto cleanup;
         }
 

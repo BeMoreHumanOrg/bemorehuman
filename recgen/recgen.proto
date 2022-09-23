@@ -23,13 +23,13 @@
 //
 // This file is part of bemorehuman. See https://bemorehuman.org
 
-/*
- * This is the recgen Protocol Buffer protocol.
- */
+//
+// This is the recgen Protocol Buffer spec.
+//
 
 syntax = "proto3";
 
-/* case internal single rec */
+// Internal Single Rec
 message InternalSingleRec
 {
     uint32 personid = 1;
@@ -41,7 +41,7 @@ message InternalSingleRecResponse
     string status = 2;
 }
 
-/* case Recs */
+// Recs
 message Recs
 {
     uint32 personid = 1;
@@ -58,3 +58,19 @@ message RecsResponse
     repeated RecItem recslist = 1;
     string status = 2;
 }
+
+// Event
+// NOTE: in proto3 all fields are optional so no need to specify that
+//       the 'eventval' field below is optional
+message Event
+{
+    uint32 personid = 1;
+    uint32 elementid = 2;
+    uint32 eventval = 3;
+}
+message EventResponse
+{
+    int32 result = 1;
+    string status = 2;
+}
+

@@ -184,7 +184,7 @@ smart event model.
   - on Debian or Ubuntu, install libfcgi-dev OR
   - on Void Linux, install fcgi-devel 
 - An implementation of protobuf-c:
-  from Debian or Ubuntu via "sudo apt install libprotobuf-c-dev protobuf-compiler" OR
+  from Debian or Ubuntu via "sudo apt install libprotobuf-c-dev protobuf-c-compiler" OR
   from Void Linux via "sudo xbps-install protobuf-c-devel" OR
   from github.com/protobuf-c
 
