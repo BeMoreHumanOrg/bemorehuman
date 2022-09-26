@@ -30,7 +30,9 @@
 // Globals
 static rating_t *g_big_rat;
 static uint32_t *g_big_rat_index;
+static uint32_t g_event_counter = 0;
 uint8_t g_output_scale = 5;
+
 
 // This is used for test-accuracy's -core alg testing only.
 // Output: a recommendation (-1 or 1..g_output_scale) for the passed-in element.
@@ -87,7 +89,7 @@ static void internal_singlerec(FCGX_Request request)
         prediction_t *recs;
 
         // This is the list of ratings given by the current user.
-        ratings = (rating_t *) calloc(num_rats + 1, sizeof(rating_t));
+        ratings = (rating_t*)calloc((size_t) (num_rats) + 1, sizeof(rating_t));
 
         // Bail roughly if we can't get any mem.
         if (!ratings) exit(EXIT_NULLRATS);
@@ -450,11 +452,24 @@ static void event(FCGX_Request request)
 
     event__free_unpacked(message_in, NULL);
 
+    // Start dealing with the events.  	
+    g_event_counter++;
+
+    // Save the event to our in-mem structure;
+
+
     // Are we ready to persist now?
-    if (counter > 100)
+    if (g_event_counter > 99)
     {
-        // Dump the events to flat fileZ
-    }
+
+        // If there's an interesting eventval, include it in the output
+        if (eventval != 0)
+        {
+            
+        }
+        g_event_counter = 0;
+
+    } // end if we want to persist the saved events
 
 
 
