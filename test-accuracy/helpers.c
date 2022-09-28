@@ -42,7 +42,7 @@ long long current_time_micros(void)
 } // end current_time_micros()
 
 
-// This routine call the bemorehumanapp server and returns the response
+// This routine call the bemorehuman server and returns the response
 //
 // inputs: int scenario,
 // outputs: char *raw_response;
@@ -91,7 +91,7 @@ int call_bemorehuman_server(int scenario, char *raw_response)
                         break;
                 case 2:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "recs", 2, file_suffix);
                         break;
-                case 3:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "rate", 3, file_suffix);
+                case 3:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "event", 3, file_suffix);
                         break;
                 case 5:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "search", 5, file_suffix);
                         break;

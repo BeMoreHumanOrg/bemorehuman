@@ -42,9 +42,7 @@ This guy is an executable that does integration testing on bemorehuman.
  
 bemorehuman (core) testing:  ./test-accuracy --core
  
-*/ 
-
-/************ Testing stuff below ****************/
+*/
 
 static void make_pb_scen_2_file(uint32_t userid)
 {
@@ -53,7 +51,6 @@ static void make_pb_scen_2_file(uint32_t userid)
     void *buf;                    // Buffer to store serialized data
     size_t len;                    // Length of serialized data
 
-    // todo need to put real personid here
     message_out.personid = userid;
     message_out.popularity = 7;
 
@@ -75,7 +72,39 @@ static void make_pb_scen_2_file(uint32_t userid)
 
     // cleanup
     free(buf);
-}
+} // end scen 2 "recs"
+
+
+static void make_pb_scen_3_file(uint32_t userid, uint32_t elementid, uint32_t eventid)
+{
+    // Do some protobuf-based calling here (try writing the protobuf to a file)
+    Event message_out = EVENT__INIT;
+    void *buf;                    // Buffer to store serialized data
+    size_t len;                    // Length of serialized data
+
+    message_out.personid = userid;
+    message_out.elementid = elementid;
+    message_out.eventval = eventid;  // just passing this along; could be 0
+
+    // Finish constructing the protobuf message.
+    len = event__get_packed_size(&message_out); // This is calculated packing length
+    buf = malloc (len);                      // Allocate required serialized buffer length
+    event__pack(&message_out, buf); // Pack the data
+
+    // ok, write the protobuf to a file
+    char proto_fname[128];
+    sprintf(proto_fname, "./pbfiles/scenario_3.pb");
+
+    FILE *proto_tmpfile = fopen(proto_fname, "w");
+    assert(NULL != proto_tmpfile);
+
+    // Make sure to use fwrite and not fprintf with %s
+    fwrite(buf, len, 1, proto_tmpfile);
+    fclose(proto_tmpfile);
+
+    // cleanup
+    free(buf);
+} // end scen 3 "event"
 
 
 // Provide a random integer in [0, limit)
@@ -104,49 +133,27 @@ void TestAccuracy()
 {
     /*
 
-     11.02.13
-     So, new plan:
+     Plan:
      0) iterate over all users for whom we need to generate recs (for steps 1-7)
-     1) get MLratings
-     2) create new user via API call
-     3) set aside half of the 5's for that user. We'll use these later for comparison
+     1) get ratings
+     2) (used to be create new user but not needed atm)
+     3) set aside some of the ratings for that user. We'll use these later for comparison
      4) call server with "rate" call for a new user
-         - if we're testing the testing code, can call bemorehuman with my 66-elt reference. Make sure to do it only once.
-     5) call bemorehumanapp server and populate MAX_PREDS... elt rec structure in mem with preds for that person
+     5) call bemorehuman server and populate MAX_PREDS... elt rec structure in mem with preds for that person
      6) compare what we set aside in 3) with what's in 5) and spit those results out
          - "for this user we are on average 1.2 away for the 5's we held back (and store 1.2 for later)
-     7) delete the user we just created (prolly at db level)
+     7) delete the user we just created
 
      8) collate & print results
      9) generate random preds to compare "random" with bemorehuman
 
      */
 
-    /*
-     (OLD) Plan is to do the following:
-
-     0) iterate over all users for whom we need to generate recs for (for steps 1-5)
-     1) load ratings for a user from db table
-     2) set aside half of the 5's for that user. We'll use these later for comparison
-     3) call bemorehuman for that user (straight-up http call)
-         - if we're testing the testing code, can call bemorehuman with my 66-elt reference. Make sure to do it only once.
-     4) populate MAX_PREDS... elt rec structure in mem with preds for that person
-     5) compare what we set aside in 2) with what's in 4) and spit those results out
-         - "for this user we are on average 1.2 away for the 5's we held back (and store 1.2 for later)
-
-     6) collate & print results
-     7) generate random preds to compare "random" with bemorehuman
-
-     */
-
     size_t i;
-
     size_t userCounter = 0;
-
     long long start, finish, total_time = 0;
 
     // prepare to iterate over all users for whom we need to generate recs for (for steps 1-7)
-
     size_t numrows = 0, num_held_back = 0;
     unsigned int curelement_int;
     int userid, currat, held_back[4096];
@@ -160,19 +167,6 @@ void TestAccuracy()
     srand((unsigned int) time(NULL));
     unsigned int random = 0;
     double random_avg = 0.0;
-
-
-    // begin tests for 4 specific people
-    // TODO: turn this functionality into a command-line option
-    /* we know the fly buys numbers. Use them to get the personid from the person_ids table
-
-    6014351063308314
-    6014355727463688
-    6014351000635811
-    6014351020280416
-
-     */
-    // end tests for 4 specific people
 
     // Begin loading ratings.
     // Create the big_rat.
@@ -362,7 +356,6 @@ void TestAccuracy()
             else
             {
                 // add this (elt, rat) pair to the string we'll use to call bemorehuman
-                // todo fill up protobuf request here?
                 send_counter++;
             }
         }
@@ -373,7 +366,7 @@ void TestAccuracy()
          * Scenario: dynamic scan
          */
 
-        // 5) call bemorehumanapp server and populate MAX_PREDS... elt rec structure in mem with preds for that person
+        // 5) call bemorehuman server and populate MAX_PREDS... elt rec structure in mem with preds for that person
         // Dynamic scan, similar to dynamic rate. It's scan b/c we're sending one id to the server and saying "what about this film?"
         // It's called Dynamic b/c it changes for each film for which we want to get the pred.
 

@@ -74,8 +74,8 @@
 #define EXIT_NULLRATS 6
 #define EXIT_NULLPREDS 7
 
-#define MAX_STACK 128           // stack size for max 2^(128/2) array elements when sorting
-
+#define MAX_STACK 128              // stack size for max 2^(128/2) array elements when sorting
+#define EVENTS_TO_PERSIST_MAX 99   // how many incoming events to store in RAM before persisting to disk?
 
 // This expects a valence_xy_t for both args.
 #define ASSIGN(a,b) do { \
@@ -146,7 +146,6 @@ typedef struct                       // slope/offset compression helper type
     uint32_t count;
 } guy_t;
 
-
 typedef struct
 {
     element_id_t eltid;	      // half of the x,y pair. the other half is in the bind_seg. for bb, this is y. for bb_ds this is x.
@@ -175,6 +174,13 @@ typedef struct
     short rating;
     char padding[2];
 } rating_t;
+
+typedef struct
+{
+    exp_elt_t personid;
+    exp_elt_t elementid;
+    exp_elt_t eventval;
+} event_t;
 
 typedef struct
 {

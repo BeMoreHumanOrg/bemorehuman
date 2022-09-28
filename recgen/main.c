@@ -31,6 +31,7 @@
 static rating_t *g_big_rat;
 static uint32_t *g_big_rat_index;
 static uint32_t g_event_counter = 0;
+static event_t g_events_to_persist[EVENTS_TO_PERSIST_MAX];
 uint8_t g_output_scale = 5;
 
 
@@ -362,8 +363,8 @@ static void recs(FCGX_Request request)
     // Free protobuf allocations.
     free(buffer);                          // Free the allocated serialized buffer
     free(pb_response.status);
-    for (size_t i = 0; i < pb_response.n_recslist; i++)
-        free(recitems[i]);
+    for (size_t j = 0; j < pb_response.n_recslist; j++)
+        free(recitems[j]);
     free(recitems);
 
 } // end recs()
@@ -395,9 +396,10 @@ static void event(FCGX_Request request)
     post_len = (size_t) FCGX_GetStr((char *) post_data, sizeof(post_data), request.in);
 
     // Now we are ready to decode the message.
-    uint32_t personid = 0;
-    uint32_t elementid = 0;
-    uint32_t eventval = 0;
+    event_t event;
+    event.personid = 0;
+    event.elementid = 0;
+    event.eventval = 0;
 
     // 1. Persist input event to filesystem.
 
@@ -423,7 +425,7 @@ static void event(FCGX_Request request)
         event_response__pack(&pb_response, buffer);
         goto finish_up;
     }
-    personid = message_in->personid;
+    event.personid = message_in->personid;
 
     // Does the passed-in elementid not match any element we know about?
     if (message_in->elementid < 0 || message_in->elementid > BE.num_elts)
@@ -435,7 +437,7 @@ static void event(FCGX_Request request)
         event_response__pack(&pb_response, buffer);
         goto finish_up;
     }
-    elementid = message_in->elementid;
+    event.elementid = message_in->elementid;
 
     // Does the passed-in eventval not match a valid eventval?
     if (message_in->eventval && message_in->eventval < 1)
@@ -448,32 +450,54 @@ static void event(FCGX_Request request)
         goto finish_up;
     }
 
-    if (message_in->eventval) eventval = message_in->eventval;
+    if (message_in->eventval) event.eventval = message_in->eventval;
 
     event__free_unpacked(message_in, NULL);
 
-    // Start dealing with the events.  	
+    // Save the event to our in-mem structure;
+    g_events_to_persist[g_event_counter] = event;
     g_event_counter++;
 
-    // Save the event to our in-mem structure;
-
-
     // Are we ready to persist now?
-    if (g_event_counter > 99)
+    if (g_event_counter > EVENTS_TO_PERSIST_MAX)
     {
+        char line[512];
 
-        // If there's an interesting eventval, include it in the output
-        if (eventval != 0)
+        FILE *fp;
+        char fname[255];
+        strlcpy(fname, BE.bmh_events_file, sizeof(fname));
+
+        // MUST be "a" and not "w" because this file gets appended to.
+        fp = fopen(fname,"a");
+
+        if (NULL == fp)
         {
-            
+            syslog(LOG_ERR, "ERROR: cannot open output file %s", fname);
+            exit(1);
         }
+        for (int i = 0; i < g_event_counter; i++)
+        {
+            // If there's an interesting eventval, add it to the output.
+            if (event.eventval != 0)
+                sprintf(line, "%d,%d,%d",
+                        g_events_to_persist[i].personid,
+                        g_events_to_persist[i].elementid,
+                        g_events_to_persist[i].eventval);
+            else
+                sprintf(line, "%d,%d",
+                        g_events_to_persist[i].personid,
+                        g_events_to_persist[i].elementid);
+
+            // Put the line in the output file
+            fwrite(line, strlen(line), 1, fp);
+
+        } // end for loop across events to write out
+
+        fclose(fp);
+
+        // Reset counter.
         g_event_counter = 0;
-
     } // end if we want to persist the saved events
-
-
-
-
 
     // 2. Finish constructing response
     strlcpy(pb_response.status, "ok", sizeof(pb_response.status));
@@ -493,7 +517,7 @@ static void event(FCGX_Request request)
 } // end event()
 
 
-// Eecute this callback per thread, with an infinite loop inside that will receive requests
+// Execute this callback per thread, with an infinite loop inside that will receive requests
 // NOTE: clang understands the GCC pragma, but not vice-versa! So do it this way.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wreturn-type"

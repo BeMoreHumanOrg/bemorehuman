@@ -127,7 +127,6 @@ extern unsigned int random_uint(unsigned int);
 
 // in helpers.c
 extern int call_bemorehuman_server(int, char *);
-extern long long current_time_micros(void);
 
 // globals
 extern int g_test_mode;

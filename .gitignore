@@ -163,10 +163,14 @@ fabric.properties
 # Ignore everything but code style settings and run configurations
 # that are supposed to be shared within teams.
 
-.idea/*
 
-!.idea/codeStyles
-!.idea/runConfigurations
+# unbrand: not needed b/c I don't want to include any .idea stuff
+# orig .idea/*
+.idea
+
+# !.idea/codeStyles
+# !.idea/runConfigurations
+
 
 ### macOS ###
 # General
