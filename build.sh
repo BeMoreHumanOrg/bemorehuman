@@ -34,25 +34,25 @@
 mkdir ~/bin
 
 mkdir ~/build-bmhlib
-cd ~/build-bmhlib
+cd ~/build-bmhlib || exit
 cmake ~/src/bemorehuman/lib  
 cmake --build . --target all
 sudo make install 	 # to install the libbmh.so in /usr/lib, the config, and header files 
 
 mkdir ~/build-ratgen
-cd ~/build-ratgen
+cd ~/build-ratgen || exit
 cmake ~/src/bemorehuman/ratgen  
 cmake --build . --target all
 ln -s  ~/build-ratgen/ratgen  ~/bin/ratgen   # to make a link to ratgen in a convenient place
 
 mkdir ~/build-valgen
-cd ~/build-valgen
+cd ~/build-valgen || exit
 cmake ~/src/bemorehuman/valgen  
 cmake --build . --target all
 ln -s  ~/build-valgen/valgen  ~/bin/valgen
 
 mkdir ~/build-recgen
-cd ~/build-recgen
+cd ~/build-recgen || exit
 cmake ~/src/bemorehuman/recgen  
 cmake --build . --target all
 ln -s  ~/build-recgen/recgen  ~/bin/recgen
@@ -60,7 +60,7 @@ ln -s  ~/build-recgen/recgen  ~/bin/recgen
 # The test-accuracy binary needs to be in the ..bemorehuman/test-accuracy directory.
 # cmake will put it there and you can make a link to a friendlier place.
 mkdir ~/build-test-accuracy
-cd ~/build-test-accuracy
+cd ~/build-test-accuracy || exit
 cmake ~/src/bemorehuman/test-accuracy  
 cmake --build . --target all
 ln -s ~/src/bemorehuman/test-accuracy/test-accuracy ~/bin/test-accuracy   

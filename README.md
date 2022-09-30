@@ -19,7 +19,7 @@ system via a REST interface and receive recommendation in real-time.
 Recommending things to people is something that lots of companies have tried to do for many
 years. Everyone from Amazon to Netflix to TikTok and even smaller content providers and
 ecommerce stores want to recommend things to visitors and shoppers. These recommendations
-can appear on a website, in email, in a feed, or really whereever a person interacts with
+can appear on a website, in email, in a feed, or really wherever a person interacts with
 the company or brand.
 
 ## How it works
@@ -29,7 +29,7 @@ Here is a simple example of how bemorehuman works:
 - What do you want to recommend? Is it books? Movies? Classified ads? Things that work well
 are things that are unique, don't change, and have a persistent id. And of course you need
 the legal right to use that data for your specific purposes. For example, "red wine" isn't
-a good thing to recommend because there are lots of diffent red wines. But "Seifried Nelson
+a good thing to recommend because there are lots of different red wines. But "Seifried Nelson
 Pinot Noir 2020" is a good thing to recommend because it's a unique thing. In the
 installation instructions below we show an example of how you can recommend movies.
 
@@ -52,7 +52,7 @@ recgen, doesn't have to compute those valences when recommending. In general, re
 the most highly correlated items to what the peron already knows about. Recgen does not know
 anything about the category of what it's recommending. So if recgen is recommending wines,
 it won't know anything about wines, nor that it's even recommending wines. It just knows about
-the valences which reprensent anonymous things.
+the valences which represent anonymous things.
 
 - Recgen receives a request for recommendations via a REST API call. For example, your website
 visitor might want to receive a recommendation for wine. You know from your user database
@@ -89,11 +89,11 @@ to see obscure things or sometimes we want to see popular things. It's very easy
 the recommendations generator "only give me recommendations of fairly obscure things."
 
 - Recommendations using different scales - For a particular dataset, you can choose what the
-ratings scale is. Maybe for one dataset you want to use a ratings scale of 1-5 becuase you
+ratings scale is. Maybe for one dataset you want to use a ratings scale of 1-5 because you
 have "whole star ratings" where people can rate from 1-5 stars for things. Maybe for a
 different dataset you want to be more expressive with your data and you want a 1-32 scale.
-Using such a scale gives you more subtelty and gradations in the recommendations. It also
-might help with the accuracy to give the algrorithms more room to breathe, so to speak.
+Using such a scale gives you more subtlety and gradations in the recommendations. It also
+might help with the accuracy to give the algorithms more room to breathe, so to speak.
 
 - Tested in real-world scenarios - Prior to open sourcing bemorehuman, it was used
 commercially to recommend content across different datasets such as supermarket items, books,
@@ -104,8 +104,8 @@ allows for a wide range of usage in your public or private project. See the COPY
 for more info.
 
 - Reuse Software compliance - Reuse Software at https://reuse.software is an effort that allows
-companies (or anyone, really) to undestand more clearly how an open source project stacks
-up from a licensing perspective. If a company is trying to figure out whether or not to
+companies (or anyone, really) to understand more clearly how an open source project stacks
+up from a licensing perspective. If a company is trying to figure out whether to
 adopt an open source project internally, technical capability is often only one concern.
 A big concern might be legal: do the lawyers give the thumbs-up for company adoption of the
 OSS? Reuse Software compliance is something that helps legal teams do their analysis.
@@ -116,7 +116,7 @@ anyone else interested to adopt our software.
 
 For help getting started with the code:
 
-Keep reading this README file or browse the code itself. You can also ask questions on our Github
+Keep reading this README file or browse the code itself. You can also ask questions on our GitHub
 [Discussions](https://github.com/BeMoreHumanOrg/bemorehuman/discussions).
 
 For motivations behind the source code:
@@ -184,9 +184,9 @@ smart event model.
   - on Debian or Ubuntu, install libfcgi-dev OR
   - on Void Linux, install fcgi-devel 
 - An implementation of protobuf-c:
-  from Debian or Ubuntu via "sudo apt install libprotobuf-c-dev protobuf-compiler" OR
-  from Void Linux via "sudo xbps-install protobuf-c-devel" OR
-  from github.com/protobuf-c
+  - on Debian or Ubuntu via "sudo apt install libprotobuf-c-dev protobuf-c-compiler" OR
+  - on Void Linux via "sudo xbps-install protobuf-c-devel" OR
+  - from github.com/protobuf-c
 
   If you don't have a recgen.proto in the bemorehuman/recgen dir (it should already be there)
   - modify recgen.proto as needed then generate the recgen .c and .h (recgen.pb-c.c/.h) on command line:
@@ -269,7 +269,7 @@ Human HQ.
 ### STEP 5 (optional but recommended): Download and prepare Grouplens/Movielens movie rating dataset.
 
 NOTE: All times below are from an Intel i7 8559u NUC development machine running Debian
-Linux, with 20GB RAM and an SSD drive.
+Linux, with 20 GB RAM and an SSD drive.
 
 NOTE: "Grouplens" is the name of a University of Minnesota research lab, "Movielens" is the name of the
 movie ratings project. I use the terms interchangeably. They've been providing movie ratings data for
@@ -324,7 +324,7 @@ is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf file. Def
 
       ~/src/bemorehuman/bemorehuman exp10            # takes about 7 min
 
-- There are more ways to run the bemorehuman script (and its components) epending on your situation. See the
+- There are more ways to run the bemorehuman script (and its components) depending on your situation. See the
 bemorehuman script and source files for more details.
 
 Expected Results:
@@ -336,12 +336,12 @@ but of course this is heavily dependent on your machine load and the random test
 
 - In terms of accuracy, here is some representative output:
 
-"**Across all 10 users we're evaluating, Mean Absoluete Error (MAE) is 1.895062, or 18.950617 percent for the ones we held back
+"**Across all 10 users we're evaluating, Mean Absolute Error (MAE) is 1.895062, or 18.950617 percent for the ones we held back
 Across all 10 users we're evaluating, random recs have MAE of 3.197531."
 
-So you should expect to see similar results. Why simliar and not exact? Because of the testing method. Users
+So you should expect to see similar results. Why similar and not exact? Because of the testing method. Users
 evaluated for testing are chosen at random. We try to predict what we know they've already rated and the MAE is
-how far away the prediction is relative to scale. In the above example MAE of 1.89 means we werea just under 2
+how far away the prediction is relative to scale. In the above example MAE of 1.89 means we were just under 2
 away on average, on a 10-scale. So that translates to just under 1 away on a 5-scale like what might be typical
 when you ask people to rate things as one to five stars.
 
@@ -354,7 +354,7 @@ working directory (by default it's /opt/bemorehuman) and start again after the d
 
 Enjoy!
 
-If you have questions or comments, hit us up on github at https://github.com/BeMoreHumanOrg or https://bemorehuman.org 
+If you have questions or comments, hit us up on GitHub at https://github.com/BeMoreHumanOrg or https://bemorehuman.org 
 
 
 ## bemorehuman recommendation engine concepts

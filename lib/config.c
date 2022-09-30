@@ -64,8 +64,6 @@ void load_config_file()
                     perror("Value token too big. Exiting");
                     exit(1);
                 }
-                // now check for validity of integers
-                char *char_ptr = NULL;
 
                 // filesystem paths
                 if (!strcmp(item, "events_file"))
@@ -77,6 +75,16 @@ void load_config_file()
                         exit(1);
                     }
                     strlcpy(BE.events_file, value, sizeof(BE.events_file));
+                }
+                if (!strcmp(item, "bmh_events_file"))
+                {
+                    // Just get the string & don't validate it much.
+                    if (strlen(value) >= PATH_SIZE)  // too big!
+                    {
+                        perror("bmh_events_file field needs to be max (PATH_SIZE - 1) characters. Exiting bmh-config");
+                        exit(1);
+                    }
+                    strlcpy(BE.bmh_events_file, value, sizeof(BE.bmh_events_file));
                 }
                 if (!strcmp(item, "ratings_file"))
                 {
@@ -403,6 +411,8 @@ cache_check:
     sprintf(outline, "BE.num_people is ---%d---\n", BE.num_people);
     fprintf(stdout, "%s", outline);
     sprintf(outline, "BE.events_file is ---%s---\n", BE.events_file);
+    fprintf(stdout, "%s", outline);
+    sprintf(outline, "BE.bmh_events_file is ---%s---\n", BE.bmh_events_file);
     fprintf(stdout, "%s", outline);
     sprintf(outline, "BE.ratings_file is ---%s---\n", BE.ratings_file);
     fprintf(stdout, "%s", outline);

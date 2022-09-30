@@ -41,6 +41,7 @@ typedef struct bemorehumanConfig
     uint64_t num_ratings;  // total number of ratings
     uint64_t num_people;   // total number of people who ratied stuff
     char events_file[PATH_SIZE];
+    char bmh_events_file[PATH_SIZE];
     char ratings_file[PATH_SIZE];
     char working_dir[PATH_SIZE];
     char valence_cache_dir[PATH_SIZE];
