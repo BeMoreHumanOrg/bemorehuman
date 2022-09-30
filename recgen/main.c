@@ -402,7 +402,6 @@ static void event(FCGX_Request request)
     event.eventval = 0;
 
     // 1. Persist input event to filesystem.
-
     Event *message_in;
     message_in = event__unpack(NULL, post_len, post_data);
     // Check for errors
@@ -438,20 +437,7 @@ static void event(FCGX_Request request)
         goto finish_up;
     }
     event.elementid = message_in->elementid;
-
-    // Does the passed-in eventval not match a valid eventval?
-    if (message_in->eventval && message_in->eventval < 1)
-    {
-        syslog(LOG_ERR, "eventval from client is incorrect: ---%d---", message_in->eventval);
-        sprintf(pb_response.status, "eventval from client is incorrect: %d", message_in->eventval);
-        len = event_response__get_packed_size(&pb_response);
-        buffer = malloc(len);
-        event_response__pack(&pb_response, buffer);
-        goto finish_up;
-    }
-
     if (message_in->eventval) event.eventval = message_in->eventval;
-
     event__free_unpacked(message_in, NULL);
 
     // Save the event to our in-mem structure;
@@ -459,7 +445,7 @@ static void event(FCGX_Request request)
     g_event_counter++;
 
     // Are we ready to persist now?
-    if (g_event_counter > EVENTS_TO_PERSIST_MAX)
+    if (g_event_counter == EVENTS_TO_PERSIST_MAX)
     {
         char line[512];
 
@@ -475,16 +461,17 @@ static void event(FCGX_Request request)
             syslog(LOG_ERR, "ERROR: cannot open output file %s", fname);
             exit(1);
         }
+
         for (int i = 0; i < g_event_counter; i++)
         {
             // If there's an interesting eventval, add it to the output.
-            if (event.eventval != 0)
-                sprintf(line, "%d,%d,%d",
+            if (g_events_to_persist[i].eventval != 0)
+                sprintf(line, "%d,%d,%d\n",
                         g_events_to_persist[i].personid,
                         g_events_to_persist[i].elementid,
                         g_events_to_persist[i].eventval);
             else
-                sprintf(line, "%d,%d",
+                sprintf(line, "%d,%d\n",
                         g_events_to_persist[i].personid,
                         g_events_to_persist[i].elementid);
 
@@ -492,7 +479,6 @@ static void event(FCGX_Request request)
             fwrite(line, strlen(line), 1, fp);
 
         } // end for loop across events to write out
-
         fclose(fp);
 
         // Reset counter.
@@ -501,6 +487,9 @@ static void event(FCGX_Request request)
 
     // 2. Finish constructing response
     strlcpy(pb_response.status, "ok", sizeof(pb_response.status));
+    len = event_response__get_packed_size(&pb_response);
+    buffer = malloc(len);
+    event_response__pack(&pb_response, buffer);
 
     // Send the protobuf to the client.
     finish_up:

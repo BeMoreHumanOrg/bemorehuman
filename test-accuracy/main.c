@@ -25,7 +25,6 @@
 
 #include "accuracy.h"
 
-int g_test_mode = TEST_MODE_CORE;
 int g_server_location = TEST_LOC_DEV;
 static int g_ratings_scale = 5;
 static rating_t *g_big_rat = NULL; // this is the valgen-outputted user ratings
@@ -35,13 +34,8 @@ static size_t g_num_testing_people = 0;
 
 /*
  
-1.12.12 
 This guy is an executable that does integration testing on bemorehuman.
- Specify on command line invocation which one to
- execute:
- 
-bemorehuman (core) testing:  ./test-accuracy --core
- 
+
 */
 
 static void make_pb_scen_2_file(uint32_t userid)
@@ -128,24 +122,23 @@ unsigned int random_uint(unsigned int limit)
 } // end random_uint()
 
 
-// Test bemorehuman core
+// Test bemorehuman
 void TestAccuracy()
 {
     /*
 
      Plan:
-     0) iterate over all users for whom we need to generate recs (for steps 1-7)
+     0) iterate over all users for whom we need to generate recs (for steps 1-6)
      1) get ratings
-     2) (used to be create new user but not needed atm)
+     2) (used to be: create new user but not needed atm)
      3) set aside some of the ratings for that user. We'll use these later for comparison
-     4) call server with "rate" call for a new user
+     4) call server with some /event calls to add some events, just to test /event call
      5) call bemorehuman server and populate MAX_PREDS... elt rec structure in mem with preds for that person
      6) compare what we set aside in 3) with what's in 5) and spit those results out
          - "for this user we are on average 1.2 away for the 5's we held back (and store 1.2 for later)
-     7) delete the user we just created
 
-     8) collate & print results
-     9) generate random preds to compare "random" with bemorehuman
+     7) collate & print results
+     8) generate random preds to compare "random" with bemorehuman
 
      */
 
@@ -294,13 +287,13 @@ void TestAccuracy()
         // need to clear the memory here for the pb_response, then pass in the pointer
         memset(raw_response, 0, RB_RAW_RESPONSE_SIZE_MAX);
         start = current_time_micros();
-        len = (size_t) call_bemorehuman_server(2, (char *) raw_response);
+        len = call_bemorehuman_server(2, (char *) raw_response);
         finish = current_time_micros();
         total_time += (finish - start);
         printf("Time to get recs for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
         if (0 == len)
         {
-            printf("ERROR: length of response from above call is 0.\n");
+            printf("ERROR: length of response from recs call is 0. Check server logs.\n");
             return;
         }
         
@@ -355,19 +348,70 @@ void TestAccuracy()
             }
             else
             {
-                // add this (elt, rat) pair to the string we'll use to call bemorehuman
                 send_counter++;
             }
         }
         printf ("num_held_back for this user is %zu\n", num_held_back);
         printf ("num sent as ratings is %d\n", send_counter);
 
+        //
+        // Scenario: /event
+        //
+        // 4) call server with some /event calls to add some events, just to test /event call
+        num_found = 0;
+        diff_total = 0.0;
+
+        // We want to call /event num_held_back times just to test things out. No particular reason for this number.
+        for (i = 0; i < num_held_back; i++)
+        {
+            // clear out raw_response
+            memset(raw_response, 0, sizeof(raw_response));
+
+            make_pb_scen_3_file((uint32_t) userids[userCounter], (uint32_t) i + 1, i % 5);
+
+            start = current_time_micros();
+            len = call_bemorehuman_server(3, (char *) raw_response);
+            finish = current_time_micros();
+            total_time += (finish - start);
+            printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
+            if (0 == len)
+            {
+                printf("ERROR: length of response from event call is 0. Check server logs.\n");
+                return;
+            }
+
+            EventResponse *message_in2;
+
+            // Now we are ready to decode the message.
+            message_in2 = event_response__unpack(NULL, len, raw_response);
+
+            // Must check for NULL
+            if (NULL == message_in2)
+            {
+                printf("ERROR: len from event call is %lu\n", len);
+                printf("ERROR: response from event call is NULL. Exiting.\n");
+                exit(-1);
+            }
+
+            // Print the data contained in the message.
+            printf("status from event response is ---%s---\n", message_in2->status);
+            assert(! strcmp(message_in2->status, "ok"));
+            printf("result from event response is ---%d---\n", message_in2->result);
+
+            // protobuf cleanup
+            event_response__free_unpacked(message_in2, NULL);
+
+            // unlink fname;
+            unlink(fname);
+
+        } // end for loop over num_held_back
+
         /*
          * Scenario: dynamic scan
          */
 
         // 5) call bemorehuman server and populate MAX_PREDS... elt rec structure in mem with preds for that person
-        // Dynamic scan, similar to dynamic rate. It's scan b/c we're sending one id to the server and saying "what about this film?"
+        // Dynamic scan, similar to dynamic rate. It's scan b/c we're sending one id to the server and saying "what about this element?"
         // It's called Dynamic b/c it changes for each film for which we want to get the pred.
 
         void *buf;                    // Buffer to store serialized data
@@ -391,13 +435,13 @@ void TestAccuracy()
             internal_single_rec__pack(&message_out, buf);
             // end pb-specific bit
 
-            // put the pid in the filename b/c we're seeing collision when multiple test-accuracies are run. Duh.
+            // clear suffix
             strcpy(suffix, "");
 
             // if we're on prod or stage, add a _prod
             if (TEST_LOC_DEV != g_server_location) strcpy(suffix, "_prod");
 
-            sprintf(fname, "./scenario_110%s_%d.pb", suffix, getpid());
+            sprintf(fname, "./scenario_110%s.pb", suffix);
 
             FILE *tmpfile_scan = fopen(fname, "w");
             assert(NULL != tmpfile_scan);
@@ -413,7 +457,7 @@ void TestAccuracy()
             memset(raw_response, 0, sizeof(raw_response));
 
             // call the server
-            len = (size_t) call_bemorehuman_server(DYNAMIC_SCAN, (char *) raw_response);
+            len = call_bemorehuman_server(DYNAMIC_SCAN, (char *) raw_response);
 
             InternalSingleRecResponse *message_in2;
 
@@ -474,7 +518,6 @@ void TestAccuracy()
         {
             avg_diff[userCounter] = 999;
         }
-        //         7) delete the user we just created (prolly at db level)??
     } // end iterating over the users
 
     printf("\nTotal time is %lld micros (%lld millis) to generate recs for %zu people, or %lld millis per person.\n",
