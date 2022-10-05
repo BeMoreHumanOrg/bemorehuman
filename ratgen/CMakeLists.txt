@@ -39,10 +39,8 @@ set(MY_SOURCE_FILES
 set(SOURCE_FILES ${MY_SOURCE_FILES})
 
 include_directories(/usr/local)
-include_directories(/usr/include/postgresql)
 
 link_directories(/usr/local/lib)
-link_directories(/usr/local/pgsql/lib)
 
 set(APPFLAGS "-DFEWER_THAN_65K_CUSTOMERS")
 

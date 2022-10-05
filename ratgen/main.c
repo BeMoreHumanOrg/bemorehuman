@@ -31,7 +31,7 @@
 //  Implicit ratings are simply precursors to recommendations. Part of a chain or pipeline. The output of ratgen are "ratings" which
 //  are used as inputs to the next part of the pipeline: valgen (valence generation).
 //
-//  If you have explicit ratings such as from a 5-star rating system those can be used as inputs to valgen and you don't need ratgen.
+//  If you have explicit ratings such as from a 5-star rating system those can be used as inputs to valgen, and you don't need ratgen.
 //  2 usage models:
 //
 //    - events file -----> ratgen --> valgen --> recgen --> recommendations to end users  OR
@@ -40,7 +40,7 @@
 // NOTE: We're using the term "event" to mean purchase, or click, or listen, etc. Use ratgen for when you don't have explicit ratings
 // data, but do have implicit ratings data expressed through purchases, clicks, listens, etc.
 //
-// NOTE: We use the term "element" to mean a product, a video, a song, or anything that can be recommennded. These are the things for
+// NOTE: We use the term "element" to mean a product, a video, a song, or anything that can be recommended. These are the things for
 // which we create implicit ratings in ratgen.
 //
 //
@@ -69,7 +69,7 @@
 // these rules in order. For example if ratio < 0.03125, that means a rating of 1.
 //
 // NOTE: final entry is just something > 1 so that we can satisfy "1 < something" in the event_ratio check.
-static float g_ratio_thresh[32] = {0.03125, 0.0625, 0.09375, 0.125, 0.15625, 0.1875, 0.21875, 0.25, 0.28125, 0.3125,
+static double g_ratio_thresh[32] = {0.03125, 0.0625, 0.09375, 0.125, 0.15625, 0.1875, 0.21875, 0.25, 0.28125, 0.3125,
                                    0.34375, 0.375, 0.40625, 0.4375, 0.46875, 0.5, 0.53125, 0.5625, 0.59375, 0.625,
                                    0.65625, 0.6875, 0.71875, 0.75, 0.78125, 0.8152, 0.84375, 0.875, 0.90625, 0.9375,
                                    0.96875, 1.01};
@@ -116,7 +116,7 @@ int main()
     // Declare time variables:
     long long start, finish;
 
-    syslog(LOG_INFO, "***Starting ratgen's main");
+    syslog(LOG_INFO, "***Starting ratgen main");
 
     // Record the start time:
     start = current_time_millis();
@@ -315,9 +315,9 @@ int main()
             // 1.b.3 We now have a rating for that person / element
 
             // 1.b.4 Persist the rating info.
-            // Export to flat file: tab-delimeted personid, productid, rating
+            // Export to flat file: tab-delimited personid, productid, rating
             char out_buffer[256];
-            sprintf(out_buffer, "%d\t%d\t%d\n", personid, freqs[j].eltid, rating);
+            sprintf(out_buffer, "%d\t%u\t%d\n", personid, freqs[j].eltid, rating);
             fwrite(out_buffer, strlen(out_buffer), 1, fp);
 
         } // end for loop across distinct elements for this person

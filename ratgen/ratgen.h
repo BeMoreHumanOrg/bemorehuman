@@ -52,7 +52,4 @@ typedef struct
     uint32_t eltid;
 } freq_t;
 
-// in helpers.c
-extern long long currentTimeMillis(void);
-
 #endif // _RATGEN_H_
