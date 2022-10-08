@@ -42,8 +42,6 @@ include_directories(/usr/local)
 
 link_directories(/usr/local/lib)
 
-set(APPFLAGS "-DFEWER_THAN_65K_CUSTOMERS")
-
 add_executable(ratgen ${SOURCE_FILES})
 
 # set compile flags for my source files only
@@ -54,7 +52,7 @@ set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -O3")
 # clang: set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wno-reserved-id-macro -Weverything")
 set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall")
 
-set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
+set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS}")
 
 # set max log level
 set_target_properties(ratgen PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")

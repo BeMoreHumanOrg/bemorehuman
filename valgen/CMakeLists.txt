@@ -39,15 +39,12 @@ set(MY_SOURCE_FILES
 
 set(SOURCE_FILES ${MY_SOURCE_FILES})
 
-include_directories(/usr/include)
-include_directories(/opt/pkg/include)
-
 link_directories(/usr/lib)
 
 add_executable(valgen ${SOURCE_FILES})
 
 # set compile flags for my source file only
-# -O3 below is for valgrind debugging and for good performance
+# -O3 below is for valgrind debugging
 set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -O3")
 #set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -g")
 
