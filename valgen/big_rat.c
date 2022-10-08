@@ -261,7 +261,8 @@ typedef Rating type;      // array type
 
 static void quicksort_iterative(type array[], uint64_t len)
 {
-    uint64_t left = 0, stack[MAX], pos = 0, seed = (unsigned) rand();
+    uint64_t left = 0, stack[MAX], pos = 0;
+    uint64_t seed = (unsigned) rand(); // NOLINT because we know rand() is pseudorandom and that's ok.
     for ( ; ; )                                          // outer loop
     {
         for (; left+1 < len; len++)                      // sort left to len-1
@@ -296,7 +297,7 @@ static void quicksort_iterative(type array[], uint64_t len)
 
 
 // Pull ratings from flat file.
-void big_rat_pull_from_flat_file()
+void big_rat_pull_from_flat_file(void)
 {
     // Plan is:
     // 1) read the ratings from the flat file
@@ -334,8 +335,7 @@ void big_rat_pull_from_flat_file()
     ssize_t line_length;
 
     // Allow for tab and comma-delimited ratings input file.
-    const char delimiter[2] = "\t,";
-    char *token;
+    const char delimiter[3] = "\t,";
 
     while ((line_length = getline(&line, &line_capacity, fp)) != -1)
     {
@@ -349,6 +349,7 @@ void big_rat_pull_from_flat_file()
         int token_number = 0;
 
         // Get the first token.
+        char *token;
         token = strtok(line, delimiter);
 
         // Walk through other tokens.
@@ -357,13 +358,13 @@ void big_rat_pull_from_flat_file()
             switch (token_number)
             {
                 case 0:   // person id
-                    r.userId = (uint32_t) atoi(token);
+                    r.userId = (uint32_t) strtol(token, NULL, 10);
                     break;
                 case 1:   // element id
-                    r.eltid = (uint32_t) atoi(token);
+                    r.eltid = (uint32_t) strtol(token, NULL, 10);
                     break;
                 case 2:   // rating
-                    r.rating = (uint8_t) atoi(token);
+                    r.rating = (uint8_t) strtol(token, NULL, 10);
 
                     // Convert to 32-buckets if not already there
                     if (g_ratings_scale != 32)
@@ -451,7 +452,6 @@ void big_rat_pull_from_flat_file()
     // Iterate over BR once to populate the br_index
     int curr_user = 0;
     i = 0;
-    uint32_t walker_user;
 
     // Allocate br_index.
     br_index = malloc((BE.num_people + 1) * sizeof(uint32_t));
@@ -465,6 +465,7 @@ void big_rat_pull_from_flat_file()
     // It can be an array of uint32_t. The position in the array is the walker_user. Just watch the one-off index.
     while (i < BE.num_ratings)
     {
+        uint32_t walker_user;
         walker_user = g_big_rat[i].userId;
         if (walker_user != (uint32_t) curr_user)
         {
@@ -531,7 +532,7 @@ void big_rat_pull_from_flat_file()
 
 
 // This dumps the big_rat and br_rat_index (2 structures total) to the filesystem for quick loading later.
-void export_br()
+void export_br(void)
 {
     // Now write the loaded big_rat to a file for quick-fast in a hurry loading later.
     char filename[strlen(BE.working_dir) + 24];
@@ -549,7 +550,7 @@ void export_br()
     FILE *rat_out = fopen(filename,"w");
 
     assert(NULL != rat_out);
-    size_t num_ratings_written = 0;
+    size_t num_ratings_written;
     num_ratings_written = fwrite(g_big_rat, sizeof(Rating), BE.num_ratings, rat_out);
     syslog(LOG_INFO, "Number of ratings written to bin file: %lu and we expected %lu to be written.",
            num_ratings_written, BE.num_ratings);

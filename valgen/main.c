@@ -34,11 +34,15 @@
 // "15","392","6","-0.800000","5.800000","-0.309839","f"
 //
 
+// Static prototypes.
+static void test_spearman(void);
+
+
 // Globals.
 uint8_t g_ratings_scale = 32;
 
 // Sanity test for spearman math.
-static void test_spearman()
+static void test_spearman(void)
 {
     double spear;
     int n,  elt1, elt2;
@@ -152,7 +156,7 @@ int main(int argc, char **argv)
         switch (opt)
         {
             case 'r':   // for "rating-buckets"
-                if (atoi(optarg) < 2 || atoi(optarg) > 32)
+                if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > 32)
                 {
                     printf("Error: the argument for -r should be > 1 and < 33 instead of %s. Exiting. ***\n", optarg);
                     exit(EXIT_FAILURE);

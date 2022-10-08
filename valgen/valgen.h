@@ -52,9 +52,9 @@
 #define MAX_RATN_FOR_VALGEN 48
 
 // spear-specific
-#define BDCX(I,J) x[(I)*2 + J]
-#define RANK(I,J) rank[(I)*2 + J]
-#define BX(I,J) bx[(I)*2 + J]
+#define BDCX(I,J) x[(I)*2 + (J)]
+#define RANK(I,J) rank[(I)*2 + (J)]
+#define BX(I,J) bx[(I)*2 + (J)]
 
 // linefit-specifc
 #define INFINITE_SLOPE 1
@@ -96,7 +96,6 @@ extern uint8_t g_ratings_scale;
 
 // in BigRat.c
 extern int big_rat_init(void);
-extern Rating *bigRatLoad(char *);
 extern void big_rat_pull_from_flat_file(void);
 extern void export_br(void);
 extern Rating *br, *brds;
@@ -106,7 +105,7 @@ extern pair_t *g_pairs[NTHREADS];
 extern void build_pairs(uint32_t, uint32_t);
 extern void buildValsInit(uint32_t);
 extern void buildValences(uint32_t, uint32_t);
-extern double spearman(int , uint8_t *);
+extern double spearman(int , const uint8_t *);
 
 // in main.c
 extern uint32_t *br_index;

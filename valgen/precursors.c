@@ -26,7 +26,7 @@
 #include "valgen.h"
 
 // Forward declarations
-void linefit(uint8_t, uint8_t *, uint8_t *, double *, double *, int *);
+static void linefit(uint8_t, const uint8_t *, const uint8_t *, double *, double *, int *);
 
 // BeastConf is a lookup table to determine the 95% confidence of relevance of a particular valence. Values in
 //    the table are gleaned from a 1950's textbook
@@ -68,9 +68,6 @@ void buildValsInit(uint32_t thread)
 // 3. process as was done previously
 void build_pairs(uint32_t thread, uint32_t x)
 {
-    uint32_t current2ndRow;
-    uint32_t user1, user2;
-    unsigned short ra1, ra2;
     uint32_t el1, el2;
     
     // Catch-up if needed.
@@ -80,11 +77,14 @@ void build_pairs(uint32_t thread, uint32_t x)
     // 1. Walk the BRDS (sorted by elt then userid) for the passed-in x.
     while (x == brds[g_brds_walker[thread]].eltid)
     {
+        unsigned short ra1;
+        uint32_t user1, user2;
         user1 = brds[g_brds_walker[thread]].userId;
         ra1 = brds[g_brds_walker[thread]].rating;
 
         // 2. Find all the x, y for each user (in the BR, which is sorted by userid then elt).
         // Find the x,y for all user1 in the BR.
+        uint32_t current2ndRow;
         current2ndRow = br_index[user1];
 
         // Ok, now we're at the first entry in BR that matches userid from brds.
@@ -99,6 +99,7 @@ void build_pairs(uint32_t thread, uint32_t x)
         while (user1 == user2)
         {
             // Search for the x,y stuff.
+            unsigned short ra2;
             ra2 = br[current2ndRow].rating;
 
             el1 = (uint32_t) x;
@@ -150,7 +151,7 @@ void build_pairs(uint32_t thread, uint32_t x)
 // b is slope
 // fail_code is um, failure code
 //
-void linefit(uint8_t n, uint8_t *x, uint8_t *y, double *a, double *b, int *fail_code)
+static void linefit(uint8_t n, const uint8_t *x, const uint8_t *y, double *a, double *b, int *fail_code)
 {
     // Calculate the averages of arrays x and y.
     double xa = 0, ya = 0;
@@ -164,9 +165,10 @@ void linefit(uint8_t n, uint8_t *x, uint8_t *y, double *a, double *b, int *fail_
     ya /= n;
 
     // Calculate auxiliary sums.
-    double xx = 0, xy = 0, tmpx, tmpy;
+    double xx = 0, xy = 0;
     for (i = 0; i < n; i++)
     {
+        double tmpx, tmpy;
         tmpx = x[i] - xa;
         tmpy = y[i] - ya;
         xx += tmpx * tmpx;
@@ -198,28 +200,29 @@ void linefit(uint8_t n, uint8_t *x, uint8_t *y, double *a, double *b, int *fail_
 // OUT
 // returns the spearman value
 //
-double spearman(int n, uint8_t *x)
+double spearman(int n, const uint8_t *x)
 {
     int col, i;
-    uint8_t num1, num2, num3, num4, num5, num6, num7, num8, num9, num10,
-            num11, num12, num13, num14, num15, num16, num17, num18, num19, num20,
-            num21, num22, num23, num24, num25, num26, num27, num28, num29, num30,
-            num31, num32;
     uint8_t val;
     double val1=0.0, val2=0.0, val3=0.0, val4=0.0, val5=0.0, val6=0.0, val7=0.0, val8=0.0, val9=0.0, val10=0.0,
            val11=0.0, val12=0.0, val13=0.0, val14=0.0, val15=0.0, val16=0.0, val17=0.0, val18=0.0, val19=0.0, val20=0.0,
            val21=0.0, val22=0.0, val23=0.0, val24=0.0, val25=0.0, val26=0.0, val27=0.0, val28=0.0, val29=0.0, val30=0.0,
            val31=0.0, val32=0.0;
     double rank[MAX_RATN_FOR_VALGEN * 2];
-    uint8_t start1, start2, start3, start4, start5, start6, start7, start8, start9, start10,
-            start11, start12, start13, start14, start15, start16, start17, start18, start19, start20,
-            start21, start22, start23, start24, start25, start26, start27, start28, start29, start30,
-            start31, start32;
 
     // Plan: Walk the input to find numx instances of a rating. After walking, we can populate rank.
 
     for (col = 0; col < 2; col++)
     {
+        uint8_t num1, num2, num3, num4, num5, num6, num7, num8, num9, num10,
+            num11, num12, num13, num14, num15, num16, num17, num18, num19, num20,
+            num21, num22, num23, num24, num25, num26, num27, num28, num29, num30,
+            num31, num32;
+        uint8_t start1, start2, start3, start4, start5, start6, start7, start8, start9, start10,
+            start11, start12, start13, start14, start15, start16, start17, start18, start19, start20,
+            start21, start22, start23, start24, start25, start26, start27, start28, start29, start30,
+            start31, start32;
+
         num1 = num2 = num3 = num4 = num5 = num6 = num7 = num8 = num9 = num10 =
         num11 = num12 = num13 = num14 = num15 = num16 = num17 = num18 = num19 = num20 =
         num21 = num22 = num23 = num24 = num25 = num26 = num27 = num28 = num29 = num30 =
@@ -626,9 +629,9 @@ double spearman(int n, uint8_t *x)
     {
         // if we're in a NaN situation, compute spearman's rho like I did previously.
         double sum = 0;
-        double diff;
         for (i = 0; i < n; i++)
         {
+            double diff;
             diff = RANK(i, 0) - RANK(i, 1);
             sum += (diff * diff);
         }
@@ -649,16 +652,15 @@ void buildValences(uint32_t thread, uint32_t x)
     uint8_t rat1[MAX_RATN_FOR_VALGEN];
     uint8_t rat2[MAX_RATN_FOR_VALGEN];
 
-    uint32_t elts_walker = 0;
+    uint32_t elts_walker;
     int i;
-    int8_t num_rat;
     double a, b;
 
     FILE *fp2;
 
     // Stick the thread number on the end of the filename. E.g., 8 threads means 8 output files. No collisions. :)
     char fname[512];
-    sprintf(fname, "%s%s%d", BE.working_dir, "/valences.out", thread);
+    sprintf(fname, "%s%s%u", BE.working_dir, "/valences.out", thread);
     
     // MUST be "a" and not "w" because these files get written to multiple times.
     fp2 = fopen(fname,"a");
@@ -670,7 +672,7 @@ void buildValences(uint32_t thread, uint32_t x)
     }
 
     // Get the first one.
-    uint32_t el1, el2;
+    uint32_t el1;
     el1 = x;
 
     // The idea at this point is that we shouldn't be doing _any_ hunting or rb_finding in here!
@@ -685,6 +687,8 @@ void buildValences(uint32_t thread, uint32_t x)
     // Keep going as long as the y-value is less than the max possible.
     while (elts_walker < BE.num_elts)
     {
+        uint32_t el2;
+        int8_t num_rat;
         el2 = elts_walker;
         num_rat = g_pairs[thread][elts_walker].num_rat;
 
