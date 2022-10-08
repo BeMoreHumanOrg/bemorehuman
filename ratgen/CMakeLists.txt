@@ -50,7 +50,7 @@ add_executable(ratgen ${SOURCE_FILES})
 # -O3 below is for valgrind debugging and for good performance
 set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -O3")
 
-# The "-Wno-declarartion-after-statement is b/c of a bug in clangd that gives a false warning when using C99 and above
+# The "-Wno-declaration-after-statement is b/c of a bug in clangd that gives a false warning when using C99 and above
 # clang: set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wno-reserved-id-macro -Weverything")
 set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall")
 

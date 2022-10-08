@@ -45,11 +45,11 @@ typedef struct
     uint32_t eltid;
 } event_t;
 
-// This holds the elt count for one person's differnt elts.
+// This holds the elt count for one person's different elts.
 typedef struct
 {
     uint32_t freq;
     uint32_t eltid;
 } freq_t;
 
-#endif // _RATGEN_H_
+#endif // RATGEN_H

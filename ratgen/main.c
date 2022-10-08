@@ -123,9 +123,9 @@ int main()
         
     load_config_file();
 
-    int i, j, event_count, max_event_count, rating = 0;
+    int i, j, rating = 0;
     double event_ratio;
-    int personid;
+    uint32_t personid, event_count;
         
     FILE *fp;
     char fname[255];
@@ -151,7 +151,7 @@ int main()
     // Read 1 line of results.
     while (fgets(bfr, BUFSIZ, fp) != NULL)
     {
-        num_lines = atoi(bfr);
+        num_lines = strtol(bfr, NULL, 10);
     } // end while
 
     syslog(LOG_INFO, "num_lines is %d", num_lines);
@@ -209,10 +209,10 @@ int main()
             switch (token_number)
             {
                 case 0:   // personid
-                    events[num_found].personid = atoi(token);
+                    events[num_found].personid = strtol(token, NULL, 10);
                     break;
                 case 1:   // eltid
-                    events[num_found].eltid = atoi(token);
+                    events[num_found].eltid = strtol(token, NULL, 10);
                     break;
                 default:
                     syslog(LOG_ERR, "ERROR: hit the default case situation when parsing tokens in a line in %s. Why?", fname);
@@ -268,7 +268,7 @@ int main()
 
         // Populate freqs for this person. eltids are sorted.
         int freq_ind = -1;
-        int curr_elt = 0;
+        uint32_t curr_elt = 0;
         for (j = 0; j < num_to_allocate; j++)
         {
             // Do we have a new elt?
@@ -285,7 +285,7 @@ int main()
         } // end for loop across events for this person
 
         i += j;
-        max_event_count = 0;
+        uint32_t max_event_count = 0;
 
         // 1b. Iterate over all distinct eltids evented by this person to get the max_event_count.
         for (j = 0; j < freq_ind + 1; j++)
@@ -317,7 +317,7 @@ int main()
             // 1.b.4 Persist the rating info.
             // Export to flat file: tab-delimited personid, productid, rating
             char out_buffer[256];
-            sprintf(out_buffer, "%d\t%u\t%d\n", personid, freqs[j].eltid, rating);
+            sprintf(out_buffer, "%u\t%u\t%d\n", personid, freqs[j].eltid, rating);
             fwrite(out_buffer, strlen(out_buffer), 1, fp);
 
         } // end for loop across distinct elements for this person
