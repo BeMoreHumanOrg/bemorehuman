@@ -99,15 +99,15 @@ static int valence_cmp(const void* p1, const void* p2)
 // Sort the DS_temp.
 static void quicksort_iterative(valence_xy_t array[], uint64_t len)
 {
-    uint64_t left = 0, stack[MAX_STACK], pos = 0, seed = (unsigned) rand();
+    uint64_t left = 0, stack[MAX_STACK], pos = 0;
+    uint64_t seed = (unsigned) rand(); // NOLINT because true randomness not necessary
     valence_xy_t pivot, temp;
-    // Valence_xy_t vtemp;
 
     for ( ; ; )
     {
         for (; left+1 < len; len++)
         {                // sort left to len-1
-            if (pos == MAX_STACK) len = stack[pos = 0];        // stack overflow, reset
+            if (pos == MAX_STACK) len = stack[pos = 0];  // stack overflow, reset
             ASSIGN(pivot, array[left+seed%(len-left)]);  // pick random pivot
             seed = seed*69069+1;                         // next pseudorandom number
             stack[pos++] = len;                          // sort right part later
@@ -400,7 +400,7 @@ static int pull_from_files(bool createDS)
 
     size_t ncv = 0;   // This is for the sanity check against num_confident_valences.
 
-    for (int i = 0; i < 256; i++)
+    for (i = 0; i < 256; i++)
     {
         slopes[i].count = 1;
         offsets[i].count = 1;
@@ -427,18 +427,18 @@ static int pull_from_files(bool createDS)
             switch (token_number)
             {
                 case 0:   // elt1
-                    id_1 = (exp_elt_t ) atoi(token);
+                    id_1 = (exp_elt_t ) strtol(token, NULL, 10);
                     break;
                 case 1:   // elt2
-                    id_2 = (exp_elt_t ) atoi(token);
+                    id_2 = (exp_elt_t ) strtol(token, NULL, 10);
                     break;
                 case 2:   // numpairs
                     break;
                 case 3:   // slope
-                    slope = atof(token);
+                    slope = strtof(token, NULL);
                     break;
                 case 4:   // offset
-                    offset = atof(token);
+                    offset = strtof(token, NULL);
                     break;
                 case 5:   // coeff, which we are ignoring at this point
                     break;
@@ -511,12 +511,12 @@ static int pull_from_files(bool createDS)
     assert(ncv == g_num_confident_valences);
 
     // Set the slopes_freq and offsets_freq
-    for (int i=0; i < slope_count; i++)
+    for (i=0; i < slope_count; i++)
     {
         slopes_freq[i].count = slopes[i].count;
         slopes_freq[i].guy = slopes[i].guy;
     }
-    for (int i=0; i < offset_count; i++)
+    for (i=0; i < offset_count; i++)
     {
         offsets_freq[i].count = offsets[i].count;
         offsets_freq[i].guy = offsets[i].guy;
@@ -571,9 +571,9 @@ static int pull_from_files(bool createDS)
                    next_boundary, 100.0 - tot_buck_pct, tot_buck_pct, slopes[i].count, g_num_confident_valences);
 
             // Remove this array elt completely (actually, just slide the ones below up one and proceed because current
-            // elt is good.
+            // elt is good)
             //   - and set final elt to 0's
-            for (int j = i; j < (slope_count - 1); j++)
+            for (j = i; j < (slope_count - 1); j++)
             {
                 slopes[j].count = slopes[j+1].count;
                 slopes[j].guy = slopes[j+1].guy;
@@ -590,18 +590,18 @@ static int pull_from_files(bool createDS)
     for (i = 0; i < slope_count; i++)
     {
         double percent;
-        percent = (double) 100 * slopes[i].count / g_num_confident_valences;
+        percent = (double) 100 * slopes[i].count / (double) g_num_confident_valences;
 
         // Will the current percent put us in a new bucket?
         if (cume + percent > next_boundary || i == (slope_count - 1))
         {
             // compute/print bucket value now that we're at the end
-            for (int j = 0; j < bucket_elt_total; j++)
+            for (j = 0; j < bucket_elt_total; j++)
             {
                 bucket_value_double += percents[j] * slopes[i - bucket_elt_total + j].guy;
             }
             bucket_value_double /= bucket_percent_total;
-            bucket_value = bmh_round(bucket_value_double);
+            bucket_value = (int8_t) bmh_round(bucket_value_double);
             syslog(LOG_INFO, "### Bucket value: %d, bvdouble: %f", bucket_value, bucket_value_double);
 
             // Populate a structure so we can create the cache file later.
@@ -679,7 +679,7 @@ static int pull_from_files(bool createDS)
         strlcat(out_buffer, "10\t", sizeof(out_buffer));
 
     char bstr[6];
-    for (int i=0; i < curr_bucket; i++)
+    for (i=0; i < curr_bucket; i++)
     {
         itoa(buckets_slope[i].value, bstr);
         strlcat(out_buffer, bstr, sizeof(out_buffer));
@@ -711,9 +711,9 @@ static int pull_from_files(bool createDS)
                    next_boundary, 100.0 - tot_buck_pct, tot_buck_pct, offsets[i].count, g_num_confident_valences);
 
             // Remove this array elt completely (actually, just slide the ones below up one and proceed because current
-            // elt is good.
+            // elt is good.)
             //   - and set final elt to 0's
-            for (int j = i; j < (offset_count - 1); j++)
+            for (j = i; j < (offset_count - 1); j++)
             {
                 offsets[j].count = offsets[j+1].count;
                 offsets[j].guy = offsets[j+1].guy;
@@ -730,16 +730,16 @@ static int pull_from_files(bool createDS)
     for (i = 0; i < offset_count; i++)
     {
         double percent;
-        percent = (double) 100 * offsets[i].count / g_num_confident_valences;
+        percent = (double) 100 * offsets[i].count / (double) g_num_confident_valences;
 
         // Will the current percent put us in a new bucket?
         if (cume + percent > next_boundary || i == (offset_count - 1))
         {
             // compute/print bucket value now that we're at the end
-            for (int j = 0; j < bucket_elt_total; j++)
+            for (j = 0; j < bucket_elt_total; j++)
                 bucket_value_double += percents[j] * offsets[i - bucket_elt_total + j].guy;
             bucket_value_double /= bucket_percent_total;
-            bucket_value = bmh_round(bucket_value_double);
+            bucket_value = (int8_t) bmh_round(bucket_value_double);
             syslog(LOG_INFO, "### Bucket value: %d, bvdouble: %f", bucket_value, bucket_value_double);
 
             // Populate a structure so we can create the cache file later.
@@ -782,7 +782,7 @@ static int pull_from_files(bool createDS)
     if (special_offset)
         strlcat(out_buffer, "0\t", sizeof(out_buffer));
 
-    for (int i=0; i < curr_bucket; i++)
+    for (i=0; i < curr_bucket; i++)
     {
         itoa(buckets_offset[i].value, bstr);
         strlcat(out_buffer, bstr, sizeof(out_buffer));
@@ -808,11 +808,11 @@ static int pull_from_files(bool createDS)
     int8_t f_start = special_slope == true ? 1 : 0;
 
     if (f_start) g_tiny_slopes[0] = 10;   // right at the front of the queue b/c he's a large percentage of the s/o
-    for (int i = 0; i < (NUM_SO_BUCKETS - f_start); i++)
+    for (i = 0; i < (NUM_SO_BUCKETS - f_start); i++)
         g_tiny_slopes[i + f_start] = buckets_slope[i].value;
 
     // Use popularity order to determine order of slopes/offsets in memory
-    for (int i = 0; i < slope_count; i++ )
+    for (i = 0; i < slope_count; i++ )
     {
         g_slopes[i].value = slopes_freq[i].guy;
 
@@ -824,7 +824,7 @@ static int pull_from_files(bool createDS)
         } // end if special slope is true
 
         // Assign the fewbit value.
-        for (int j = 0; j < (NUM_SO_BUCKETS - f_start); j++)
+        for (j = 0; j < (NUM_SO_BUCKETS - f_start); j++)
         {
             if (g_slopes[i].value >= buckets_slope[j].start && g_slopes[i].value <= buckets_slope[j].stop)
                 g_slopes[i].fewbit = j + f_start;
@@ -835,11 +835,11 @@ static int pull_from_files(bool createDS)
     f_start = special_offset == true ? 1 : 0;
 
     if (f_start) g_tiny_offsets[0] = 0;   // right at the front of the queue b/c he's a large percentage of the s/o
-    for (int i = 0; i < (NUM_SO_BUCKETS - f_start); i++)
+    for (i = 0; i < (NUM_SO_BUCKETS - f_start); i++)
         g_tiny_offsets[i + f_start] = buckets_offset[i].value;
 
     // Use popularity order to determine order of slopes/offsets in memory
-    for (int i = 0; i < offset_count; i++ )
+    for (i = 0; i < offset_count; i++ )
     {
         g_offsets[i].value = offsets_freq[i].guy;
 
@@ -851,7 +851,7 @@ static int pull_from_files(bool createDS)
         } // end if special slope is true
 
         // Assign the fewbit value.
-        for (int j = 0; j < (NUM_SO_BUCKETS - f_start); j++)
+        for (j = 0; j < (NUM_SO_BUCKETS - f_start); j++)
         {
             if (g_offsets[i].value >= buckets_offset[j].start && g_offsets[i].value <= buckets_offset[j].stop)
                 g_offsets[i].fewbit = j + f_start;
@@ -890,18 +890,18 @@ static int pull_from_files(bool createDS)
             switch (token_number)
             {
                 case 0:   // elt1
-                    id_1 = (exp_elt_t ) atoi(token);
+                    id_1 = (exp_elt_t ) strtol(token, NULL, 10);
                     break;
                 case 1:   // elt2
-                    id_2 = (exp_elt_t ) atoi(token);
+                    id_2 = (exp_elt_t ) strtol(token, NULL, 10);
                     break;
                 case 2:   // numpairs
                     break;
                 case 3:   // slope
-                    slope = atof(token);
+                    slope = strtof(token, NULL);
                     break;
                 case 4:   // offset
-                    offset = atof(token);
+                    offset = strtof(token, NULL);
                     break;
                 case 5:   // coeff, which we are ignoring at this point
                     break;
@@ -1125,7 +1125,7 @@ bool pop_load()
             line[--line_length] = '\0';
 
         // Convert line to a popularity_t.
-        popularity = (popularity_t) atoi(line);
+        popularity = (popularity_t) strtol(line, NULL, 10);
 
         // Put this Popularity in g_pop.
         g_pop[i] = popularity;
@@ -1173,7 +1173,6 @@ static void load_so_compressed()
     char *token;
     bool do_slopes = false;
 
-    int i = 0;
     while ((line_length = getline(&line, &line_capacity, fp)) != -1)
     {
         // Is the file coming from linux/unix or pre Mac OSX?
@@ -1201,8 +1200,8 @@ static void load_so_compressed()
             {
                 if (token_number <= NUM_SO_BUCKETS)
                 {
-                    if (do_slopes) g_tiny_slopes[token_number - 1] = atoi(token);
-                    else g_tiny_offsets[token_number - 1] = atoi(token);
+                    if (do_slopes) g_tiny_slopes[token_number - 1] = (int8_t) strtol(token, NULL, 10);
+                    else g_tiny_offsets[token_number - 1] = (int8_t) strtol(token, NULL, 10);
                 }
                 else
                 {
@@ -1213,8 +1212,6 @@ static void load_so_compressed()
             token = strtok(NULL, delimiter);
             token_number++;
         } // end while parsing tokens
-
-        i++;
     } // end while more lines in slope/offset compressed outfile
 
     free(line);

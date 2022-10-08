@@ -137,7 +137,6 @@ a += ((unsigned) b); \
 // Typedefs
 //
 typedef uint8_t element_id_t[3];     // 24 bits for y (in the x,y pair -- x is in the bind_seg)
-typedef element_id_t beast_ind_t[2]; // allow for an (x,y) pair where x and y are 24 bits each
 typedef uint32_t exp_elt_t;          // convenient way to deal with element id's
 typedef int64_t bb_ind_t;            // type of each elt in the bb, -1 value means no value
 typedef struct                       // slope/offset compression helper type
@@ -234,11 +233,6 @@ extern rating_t *big_rat_leash(void);
 
 extern uint32_t *big_rat_index_leash(void);
 
-// in helpers.c
-extern long bdc_round(double);
-
-extern int bdc_int_floor(double);
-
 // in predictions.c
 extern void create_workingset(size_t);
 
@@ -249,4 +243,4 @@ extern void gen_valence_cache(void);
 
 extern void gen_valence_cache_ds_only(void);
 
-#endif // _RECGEN_H_
+#endif // RECGEN_H

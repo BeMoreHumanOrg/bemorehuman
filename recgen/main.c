@@ -138,7 +138,7 @@ static void internal_singlerec(FCGX_Request request)
                    recs[0].rating_count);
 
             double current_pred_value = (double) recs[0].rating;
-            int int_result = 0;
+            int int_result;
             double floaty;
 
             // Scale what we return from 32 to g_output_scale.
@@ -231,9 +231,9 @@ static void recs(FCGX_Request request)
     post_len = (size_t) FCGX_GetStr((char *) post_data, sizeof(post_data), request.in);
 
     // Now we are ready to decode the message.
-    uint32_t personid = 0;
-    popularity_t popularity = 7;
-    int num_rats = 0;
+    uint32_t personid;
+    popularity_t popularity;
+    int num_rats;
 
     // 1. Get the ratings for the person.
 
@@ -384,7 +384,7 @@ static void event(FCGX_Request request)
 
     EventResponse pb_response = EVENT_RESPONSE__INIT;              // declare the response
     void *buffer = NULL;                                         // this is the output buffer
-    size_t len = 0;
+    size_t len;
     pb_response.status = malloc(sizeof(char) * STATUS_LEN);
 
     int bytes_to_fcgi;
@@ -590,7 +590,7 @@ static void populate_ncv()
             line[--line_length] = '\0';
 
         // Convert line to an size_t.
-        g_num_confident_valences = (size_t) atoi(line);
+        g_num_confident_valences = (size_t) strtol(line, NULL, 10);
         syslog(LOG_INFO, "num_confident_valences is %lu", g_num_confident_valences);
     }
     free(line);
@@ -628,13 +628,13 @@ int main(int argc, char **argv)
                 syslog(LOG_INFO, "*** End recgen valence cache DS generation");
                 exit(EXIT_SUCCESS);
             case 'b':   // for "recommendation-buckets"
-                if (atoi(optarg) < 2 || atoi(optarg) > 32)
+                if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > 32)
                 {
                     printf("Error: the argument for -b should be > 1 and < 33 instead of %s. Exiting. ***\n", optarg);
                     syslog(LOG_ERR, "The argument for -b should be > 1 and < 33, instead of %s. Exiting. ***\n", optarg);
                     exit(EXIT_FAILURE);
                 }
-                g_output_scale = atoi(optarg);
+                g_output_scale = strtol(optarg, NULL, 10);
                 printf("*** Starting the live recommender with recs using a %d-bucket scale ***\n", g_output_scale);
                 syslog(LOG_INFO, "*** Start recgen live recommender with recs using a %d-bucket scale ***", g_output_scale);
                 goto forreal;
@@ -721,7 +721,7 @@ int main(int argc, char **argv)
     }
 
     // Allow web server to write to the socket we just opened.
-    int returnval = 0;
+    int returnval;
     char system_string[len + 32];
     strlcpy(system_string, "exec chmod o+w ", sizeof(system_string));
     strlcat(system_string, BE.recgen_socket_location, sizeof(system_string));

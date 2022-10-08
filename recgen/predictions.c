@@ -95,20 +95,20 @@ static int predcmp(const void *p1, const void *p2)
 
 // Tally gets called once for each live user's ratings and calculates possible recommendation values for the other elements
 static void tally(valence_t *bb,
-                  bb_ind_t *bind_seg,
+                  const bb_ind_t *bind_seg,
                   valence_t *bb_ds,
-                  bb_ind_t *bind_seg_ds,
+                  const bb_ind_t *bind_seg_ds,
                   uint32_t user_rated,
                   short user_rating,
-                  int8_t *tiny_slopes,
-                  int8_t *tiny_offsets)
+                  const int8_t *tiny_slopes,
+                  const int8_t *tiny_offsets)
 {
     double rating, denominator;
-    int numerator = 0, int_rating;
+    int numerator, int_rating;
     valence_t *bb_ptr;
     exp_elt_t prediction_to_make;
-    short short_slope, short_offset = 0;
-    uint8_t slope_index=0, offset_index=0;
+    short short_slope, short_offset;
+    uint8_t slope_index, offset_index;
 
     // There are two similar but different sections of code below. They are separate for increased clarity. Merging would save a little
     // redundancy but add complexity in human understanding. Because this piece is the core of the recommender, let's err
@@ -408,7 +408,7 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     } // end else we're trying to find a single rec
 
     // we walk the preds list
-    float rec_value = 0.0;
+    float rec_value;
     double tmp_float;
     long tmp_long;
 
