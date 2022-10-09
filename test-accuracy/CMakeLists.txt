@@ -58,14 +58,12 @@ include_directories(/opt/pkg/include)
 link_directories(/opt/pkg/lib)
 endif()
 
-set(OUT_DIR "${CMAKE_CURRENT_LIST_DIR}")
-
 add_executable(test-accuracy ${SOURCE_FILES})
 
 # set compile flags for my source file only
 # orig set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Werror -Wno-vla")
 # -O3 below is for valgrind debugging and for good performance
-set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla  -Wno-declaration-after-statement -Wno-reserved-id-macro -Wno-documentation-unknown-command")
+set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-padded -Wno-vla  -Wno-declaration-after-statement -Wno-reserved-id-macro -Wno-documentation-unknown-command")
 
 if (CMAKE_C_COMPILER_ID MATCHES "Clang")
     set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Weverything")
@@ -77,8 +75,5 @@ set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_CO
 
 # set max log level
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
-
-# set output dir
-set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${OUT_DIR})
 
 target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh crypto)

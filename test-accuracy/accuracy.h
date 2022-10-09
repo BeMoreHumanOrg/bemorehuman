@@ -23,8 +23,8 @@
 //
 // This file is part of bemorehuman. See https://bemorehuman.org
 
-#ifndef _TESTACCURACY_H_
-#define _TESTACCURACY_H_
+#ifndef TESTACCURACY_H
+#define TESTACCURACY_H
 
 /*
  * This file holds all the commonly used stuff
@@ -50,8 +50,6 @@
 /*
  * Constants. These are the bits in the code that are likely to change with a change in what's being recommended.
  */
-#define QLEN 2047
-#define TEST_MODE_CORE 0
 #define RB_URL_LENGTH 2048
 #define RB_CURL_PB_PREFIX "curl -X POST --silent --data-binary @- -H 'Content-Type: application/octet-stream' -H 'accept: application/octet-stream' http://%s/bmh/%s < ./pbfiles/scenario_%d%s.pb"
 #define RB_LOCAL_CURL_PB_PREFIX "curl -X POST --silent --data-binary @- -H 'Content-Type: application/octet-stream' http://%s/bmh/%s < ./scenario_%d%s.pb"
@@ -61,37 +59,12 @@
 #define TEST_LOC_DEV 0
 #define TEST_LOC_STAGE 1
 #define TEST_LOC_PROD 2
-#define RB_BUCKET_SIZE 20
 #define RB_LINE 8192
-#define RB_LABEL_SIZE 50
 #define RB_RAW_RESPONSE_SIZE_MAX 32768
 
-#define MIN_VALENCES_FOR_PREDICTIONS 1
 #define MAX_PREDS_PER_PERSON 12000
-#define MAX_RATN_FOR_VALGEN 48
-#define MAX_RATS_PER_PERSON 1000
 #define DYNAMIC_RATE 100
 #define DYNAMIC_SCAN 110
-
-#define str5cmp(m, c0, c1, c2, c3, c4)                                    \
-    m[0] == c0 && m[1] == c1 && m[2] == c2 && m[3] == c3 && m[4] == c4
-#define str4cmp(m, c0, c1, c2, c3)                                    \
-    m[0] == c0 && m[1] == c1 && m[2] == c2 && m[3] == c3
-
-/*
- * Exit failure situations
- */
-#define EXIT_MEMLOAD 1
-#define EXIT_NULLBEAST 5
-#define EXIT_NULLRATS 6
-#define EXIT_NULLPREDS 7
-#define EXIT_CHMODFAIL 8
-
-/*
- * general status
- */
-#define STATUS_OK 0
-#define STATUS_NOT_OK 1
 
 #define RATINGS_BR "big_rat.bin"
 #define RATINGS_BR_INDEX "big_rat_index.bin"
@@ -109,15 +82,6 @@ typedef struct
     char padding[2];
 } rating_t;
 
-typedef struct {
-	int elementId;
-	float rating;
-	float ratingAccum;
-	int ratingCount;
-} Prediction;
-
-typedef char *String;
-
 //
 // Prototypes of things used outside the function's own source file
 //
@@ -134,4 +98,4 @@ extern unsigned long call_bemorehuman_server(int, char *);
 extern int g_server_location;
 
 
-#endif /* _TESTACCURACY_ */
+#endif // TESTACCURACY_H

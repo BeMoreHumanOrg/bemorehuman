@@ -123,7 +123,7 @@ unsigned int random_uint(unsigned int limit)
 
 
 // Test bemorehuman
-void TestAccuracy()
+void TestAccuracy(void)
 {
     /*
 
@@ -135,8 +135,6 @@ void TestAccuracy()
      4) call server with some /event calls to add some events, just to test /event call
      5) call bemorehuman server and populate MAX_PREDS... elt rec structure in mem with preds for that person
      6) compare what we set aside in 3) with what's in 5) and spit those results out
-         - "for this user we are on average 1.2 away for the 5's we held back (and store 1.2 for later)
-
      7) collate & print results
      8) generate random preds to compare "random" with bemorehuman
 
@@ -147,18 +145,18 @@ void TestAccuracy()
     long long start, finish, total_time = 0;
 
     // prepare to iterate over all users for whom we need to generate recs for (for steps 1-7)
-    size_t numrows = 0, num_held_back = 0;
+    size_t numrows, num_held_back;
     unsigned int curelement_int;
     int userid, currat, held_back[4096];
     int ratings[MAX_PREDS_PER_PERSON], num_found = 0, total_held_back = 0;
     double diff_total;
     char suffix[32];
 
-    double squared, sum_squares = 0.0, rmse = 0.0, xobs = 0.0, nrmse = 0.0;
+    double squared, sum_squares = 0.0, rmse = 0.0, xobs = 0.0, nrmse;
     int num_sum_squares = 0;
 
     srand((unsigned int) time(NULL));
-    unsigned int random = 0;
+    unsigned int random;
     double random_avg = 0.0;
 
     // Begin loading ratings.
@@ -186,7 +184,7 @@ void TestAccuracy()
     strlcat(file_to_open, "/", sizeof(file_to_open));
     strlcat(file_to_open, RATINGS_BR, sizeof(file_to_open));
     FILE *rat_out = fopen(file_to_open,"r");
-    size_t num_ratings_read = 0, num_indices_read = 0;
+    size_t num_ratings_read, num_indices_read;
     assert(NULL != rat_out);
 
     num_ratings_read = fread(g_big_rat, sizeof(rating_t), BE.num_ratings, rat_out);
@@ -358,8 +356,6 @@ void TestAccuracy()
         // Scenario: /event
         //
         // 4) call server with some /event calls to add some events, just to test /event call
-        num_found = 0;
-        diff_total = 0.0;
 
         // We want to call /event num_held_back times just to test things out. No particular reason for this number.
         for (i = 0; i < num_held_back; i++)
@@ -544,7 +540,7 @@ void TestAccuracy()
 
     overall_avg = overall_avg / (double) sum_num_found;
 
-    printf("\n**Across all %zu users we're evaluating, Mean Absoluete Error (MAE) is %f, or %f percent for the ones we held back\n",
+    printf("\n**Across all %zu users we're evaluating, Mean Absolute Error (MAE) is %f, or %f percent for the ones we held back\n",
            g_num_testing_people, overall_avg, (double) 100 * overall_avg / g_ratings_scale);
 
     random_avg = random_avg / total_held_back;
@@ -594,12 +590,12 @@ int main(int argc, char **argv)
             printf("*** Testing specific hard-coded group... ***\n");
             break;
         case 'n':                              // for "number of users"
-            if (atoi(optarg) < 1)
+            if (strtol(optarg, NULL, 10) < 1)
             {
                 printf("Error: the argument for -n should be > 0 instead of %s. Exiting. ***\n", optarg);
                 exit(EXIT_FAILURE);
             }
-            g_num_testing_people = (size_t) atoi(optarg);
+            g_num_testing_people = (size_t) strtol(optarg, NULL, 10);
             printf("*** Starting test-accuracy with number of testing people: %zu ***\n", g_num_testing_people);
             break;
         case 'p':                              // for "prod"
@@ -607,12 +603,12 @@ int main(int argc, char **argv)
             printf("*** Testing against prod... ***\n");
             break;
         case 'r':                              // for "rating-buckets"
-            if (atoi(optarg) < 2 || atoi(optarg) > 32)
+            if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > 32)
             {
                 printf("Error: the argument for -r should be > 1 and < 33 instead of %s. Exiting. ***\n", optarg);
                 exit(EXIT_FAILURE);
             }
-            g_ratings_scale = atoi(optarg);
+            g_ratings_scale = (int) strtol(optarg, NULL, 10);
             printf("*** Starting test-accuracy with ratings using a %d-bucket scale ***\n", g_ratings_scale);
             break;
         case 's':                              // for "stage"

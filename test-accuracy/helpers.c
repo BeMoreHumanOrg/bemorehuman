@@ -117,6 +117,6 @@ unsigned long call_bemorehuman_server(int scenario, char *raw_response)
 
     return (num_chars_read);
 
-} /* end call_bemorehumanapp_server() */
+} /* end call_bemorehuman_server() */
 
 /* end helpers.c */
