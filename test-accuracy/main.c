@@ -363,7 +363,12 @@ void TestAccuracy(void)
             // clear out raw_response
             memset(raw_response, 0, sizeof(raw_response));
 
-            make_pb_scen_3_file((uint32_t) userids[userCounter], (uint32_t) i + 1, i % 5);
+            // NOTE: test-accuracy can't currently test for non-explicit events, so we must test for ratings.
+            size_t made_up_rating = i % (size_t) g_ratings_scale;
+            make_pb_scen_3_file((uint32_t) userids[userCounter],
+                                (uint32_t) i + 1,
+                                made_up_rating == 0 ? 1 : (unsigned int) made_up_rating);
+
 
             start = current_time_micros();
             len = call_bemorehuman_server(3, (char *) raw_response);

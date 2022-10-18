@@ -73,7 +73,7 @@ case $1 in
 	 wait $!
 	 recgen &     # start the live recommender
 	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy
+	 cd ~/src/bemorehuman/test-accuracy || exit
 	 ./test-accuracy -g &
 	 wait $!
 	 ./test-accuracy -n 10 &
@@ -91,7 +91,7 @@ case $1 in
 	 wait $!
 	 recgen -b 32 &  # start the live recommender
 	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy
+	 cd ~/src/bemorehuman/test-accuracy || exit
 	 ./test-accuracy -g -r 32 &
 	 wait $!
 	 ./test-accuracy -n 10 -r 32 &
@@ -107,7 +107,7 @@ case $1 in
 	 wait $!
 	 recgen &     # start the live recommender
 	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy
+	 cd ~/src/bemorehuman/test-accuracy || exit
 	 ./test-accuracy -g &
 	 wait $!
 	 ./test-accuracy -n 10 &
@@ -123,16 +123,82 @@ case $1 in
 	 wait $!
 	 recgen -b 10 & # start the live recommender with output buckets on 10-scale
 	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy
+	 cd ~/src/bemorehuman/test-accuracy || exit
 	 ./test-accuracy -g -r 10 &
 	 wait $!
 	 ./test-accuracy -r 10 -n 10 &
 	 wait $!
 	 ;;
-     
+
+     cont-exp10)
+	 valgen -r 10 &   # create the valences
+	 wait $!
+	 recgen -c &  # create the valence cache
+	 wait $!
+	 recgen -d &  # create the valence ds cache
+	 wait $!
+	 recgen -b 10 & # start the live recommender with output buckets on 10-scale
+	 sleep 2
+	 cd ~/src/bemorehuman/test-accuracy || exit
+   ./test-accuracy -g -r 10 &
+   wait $!
+   ./test-accuracy -r 10 -n 10 &
+   wait $!
+
+   # b bdc trying continuous
+
+   # todo Make this thing loop
+
+   # Wait for a file to arrive and once is there process it
+   BMH_EVENTS_FILE="/opt/bemorehuman/bmh_events.txt"
+
+   # Enable the debug just to show what is going on...
+   trap "set +x" QUIT EXIT
+   set -x
+   while [ ! -f "$BMH_EVENTS_FILE" ]; do
+       sleep 30
+   done
+   # Now we have a bmh events file so process it
+
+   # cat the new file to the bottom of the old one
+   cat $BMH_EVENTS_FILE >> /opt/bemorehuman/ratings.out  # we know it's ratings.out b/c we're in explicit land
+
+   # generates optional ratings (no need b/c we're in explicit land
+
+   # generates valences
+   valgen -r 10 &
+   wait $!
+
+   # creates both valence caches (don't have to worry about malloc_trim b/c this is a sep. process)
+	 recgen -c &  # create the valence cache
+	 wait $!
+	 recgen -d &  # create the valence ds cache
+	 wait $!
+
+   # move bmh_events file to "processed" file
+   mv $BMH_EVENTS_FILE /opt/bemorehuman/bmh_events_processed.txt
+
+   # send signal to long-running recgen (recgen then reloads valence cache)
+   PID=$(pgrep bemorehuman)
+   kill -SIGUSR1 "$PID";           # send SIGUSR1 to bemorehuman which will reload caches
+   sleep 3;                        # todo: make a "ready" tmp file here instead of a sleep?
+
+   # run test-accuracy twice
+   cd ~/src/bemorehuman/test-accuracy || exit
+	 ./test-accuracy -g -r 10 &
+	 wait $!
+	 ./test-accuracy -r 10 -n 10 &
+	 wait $!
+
+   # e bdc trying continuous
+
+	 ;;
+
      *)
-	 echo Usage: `basename $0` [imp5] [imp32] [exp5] [exp10]
+	 echo Usage: bemorehuman [imp5] [imp32] [exp5] [exp10]
 	 ;;
 esac
+
+
 
 exit 0

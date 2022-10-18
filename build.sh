@@ -59,8 +59,9 @@ ln -s  ~/build-recgen/recgen  ~/bin/recgen
 
 # The test-accuracy binary needs to be in the ..bemorehuman/test-accuracy directory.
 # cmake will put it there and you can make a link to a friendlier place.
-mkdir ~/build-test-accuracy
-cd ~/build-test-accuracy || exit
-cmake ~/src/bemorehuman/test-accuracy  
+cd ~/src/bemorehuman/test-accuracy
+mkdir build
+cd build || exit
+cmake ..  
 cmake --build . --target all
 ln -s ~/src/bemorehuman/test-accuracy/test-accuracy ~/bin/test-accuracy   

@@ -23,6 +23,8 @@
 //
 // This file is part of bemorehuman. See https://bemorehuman.org
 
+#include <signal.h>
+#include <bits/signum-generic.h>
 #include "recgen.h"
 
 // This is the bemorehuman recommendation engine.
@@ -32,6 +34,7 @@ static rating_t *g_big_rat;
 static uint32_t *g_big_rat_index;
 static uint32_t g_event_counter = 0;
 static event_t g_events_to_persist[EVENTS_TO_PERSIST_MAX];
+static bool wait_for_valence_reload = false;
 uint8_t g_output_scale = 5;
 
 
@@ -531,6 +534,12 @@ static void *start_fcgi_worker(void *arg)
 
         size_t len_request_uri = strlen(request_uri);
 
+        // Do we need to wait for valences to reload?
+        while (wait_for_valence_reload)
+        {
+            sleep(1);
+        }
+
         // /internal-singlerec call
         if ((23 == len_request_uri) && (!strcmp("/bmh/internal-singlerec", request_uri)))
         {
@@ -597,58 +606,10 @@ static void populate_ncv()
     fclose(fp);
 } // end populate_ncv()
 
-
-int main(int argc, char **argv)
+static void initialize_structures()
 {
-    // Set up logging.
-    openlog(LOG_MODULE_STRING, LOG_PID, LOG_LOCAL0);
-    setlogmask(LOG_UPTO (RECGEN_LOG_MASK));
-    syslog(LOG_INFO, "*** Begin recgen invocation.");
-
     // Declare time variables.
     long long start, finish;
-
-    // Load the config file.
-    load_config_file();
-
-    // Use getopt to help manage the options on the command line.
-    int opt;
-    while ((opt = getopt(argc, argv, "cdgb:r:")) != -1)
-    {
-        switch (opt)
-        {
-            case 'c':   // for "cache generation"
-                printf("*** Generating valence cache ***\n");
-                gen_valence_cache();
-                syslog(LOG_INFO, "*** End recgen valence cache generation");
-                exit(EXIT_SUCCESS);
-            case 'd':   // for "DS cache generation"
-                printf("*** Generating DS only valence cache ***\n");
-                gen_valence_cache_ds_only();
-                syslog(LOG_INFO, "*** End recgen valence cache DS generation");
-                exit(EXIT_SUCCESS);
-            case 'b':   // for "recommendation-buckets"
-                if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > 32)
-                {
-                    printf("Error: the argument for -b should be > 1 and < 33 instead of %s. Exiting. ***\n", optarg);
-                    syslog(LOG_ERR, "The argument for -b should be > 1 and < 33, instead of %s. Exiting. ***\n", optarg);
-                    exit(EXIT_FAILURE);
-                }
-                g_output_scale = strtol(optarg, NULL, 10);
-                printf("*** Starting the live recommender with recs using a %d-bucket scale ***\n", g_output_scale);
-                syslog(LOG_INFO, "*** Start recgen live recommender with recs using a %d-bucket scale ***", g_output_scale);
-                goto forreal;
-            default:
-                printf("Don't understand. Check args. Need one of c, d, or b. \n");
-                fprintf(stderr, "Usage: %s [-c] [-d] [-b buckets]\n", argv[0]);
-                exit(EXIT_FAILURE);
-        } // end switch
-    } // end while
-
-    printf("*** Starting the live recommender with recs using a %d-bucket scale ***\n", g_output_scale);
-    syslog(LOG_INFO, "*** Start recgen live recommender with recs using a %d-bucket scale ***", g_output_scale);
-
-    forreal:
 
     // Get the num_confident_valences.
     populate_ncv();
@@ -658,6 +619,10 @@ int main(int argc, char **argv)
     start = current_time_millis();
 
     bool retval;
+
+    // xxx
+    // Run malloc_trim(0) to free the mem (do this inside sub-functions if target is non-zero)
+
 
     // Load up Beast with valences and load the DS.
     retval = load_beast(LOAD_VALENCES_FROM_BEAST_EXPORT, true);
@@ -688,6 +653,82 @@ int main(int argc, char **argv)
     g_big_rat_index = big_rat_index_leash();
 
     // end initializations before spawning threads
+} // end initialize_structures()
+
+void sig_handler(int signo)
+{
+    // Did some process tell us to reload the valence caches?
+    if (signo == SIGUSR1)
+    {
+        syslog(LOG_INFO, "recgen received SIGUSR1.");
+        // xxx
+        // Block all threads from accessing beast and beast ds.
+        wait_for_valence_reload = true;
+
+        // Remove the beast, or rather, reload beast and friends.
+        initialize_structures();
+
+        // Unblock other threads from accessing beast and beast ds
+        wait_for_valence_reload = true;
+    }
+
+} // end sig_handler()
+
+
+int main(int argc, char **argv)
+{
+    // Set up logging.
+    openlog(LOG_MODULE_STRING, LOG_PID, LOG_LOCAL0);
+    setlogmask(LOG_UPTO (RECGEN_LOG_MASK));
+    syslog(LOG_INFO, "*** Begin recgen invocation.");
+
+    // Load the config file.
+    load_config_file();
+
+    // Register signal handler.
+    if (signal(SIGUSR1, sig_handler) == SIG_ERR)
+    {
+        syslog(LOG_ERR, "Can't catch SIGUSR1 in recgen. Exiting.");
+        exit(EXIT_FAILURE);
+    }
+
+    // Use getopt to help manage the options on the command line.
+    int opt;
+    while ((opt = getopt(argc, argv, "cdb:")) != -1)
+    {
+        switch (opt)
+        {
+            case 'c':   // for "cache generation"
+                printf("*** Generating valence cache ***\n");
+                gen_valence_cache();
+                syslog(LOG_INFO, "*** End recgen valence cache generation");
+                exit(EXIT_SUCCESS);
+            case 'd':   // for "DS cache generation"
+                printf("*** Generating DS only valence cache ***\n");
+                gen_valence_cache_ds_only();
+                syslog(LOG_INFO, "*** End recgen valence cache DS generation");
+                exit(EXIT_SUCCESS);
+            case 'b':   // for "recommendation-buckets"
+                if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > 32)
+                {
+                    printf("Error: the argument for -b should be > 1 and < 33 instead of %s. Exiting. ***\n", optarg);
+                    syslog(LOG_ERR, "The argument for -b should be > 1 and < 33, instead of %s. Exiting. ***\n", optarg);
+                    exit(EXIT_FAILURE);
+                }
+                g_output_scale = strtol(optarg, NULL, 10);
+                break;
+            default:
+                printf("Don't understand. Check args. Need one of c, d, or b. \n");
+                fprintf(stderr, "Usage: %s [-c] [-d] [-b buckets]\n", argv[0]);
+                exit(EXIT_FAILURE);
+        } // end switch
+    } // end while
+
+    printf("*** Starting the live recommender with recs using a %d-bucket scale ***\n", g_output_scale);
+    syslog(LOG_INFO, "*** Start recgen live recommender with recs using a %d-bucket scale ***", g_output_scale);
+
+    // Populate the beast, g_pop, and ratings structures.
+    initialize_structures();
 
     // Begin connecting to fastcgi.
     // Strip off the filename from BE.recgen_socket_location.
