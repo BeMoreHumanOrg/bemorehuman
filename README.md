@@ -28,10 +28,10 @@ Here is a simple example of how bemorehuman works:
 
 - What do you want to recommend? Is it books? Movies? Classified ads? Things that work well
 are things that are unique, don't change, and have a persistent id. And of course you need
-the legal right to use that data for your specific purposes. For example, "red wine" isn't
-a good thing to recommend because there are lots of different red wines. But "Seifried Nelson
-Pinot Noir 2020" is a good thing to recommend because it's a unique thing. In the
-installation instructions below we show an example of how you can recommend movies.
+the legal right to use that data for your specific purposes. For example, "red wine" is
+a good category of things to recommend because there are lots of different red wines such as
+"Seifried Nelson Pinot Noir 2020" which is a unique product or thing. In the installation 
+instructions below we show an example of how you can recommend movies.
 
 - The input to bemorehuman is a list of 3-value anonymous events. An event would be like:
 "person 2637 gave product 312 a rating of 4." So the input file would look like:
