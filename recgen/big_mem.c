@@ -23,6 +23,7 @@
 //
 // This file is part of bemorehuman. See https://bemorehuman.org
 
+#include <malloc.h>
 #include "recgen.h"
 
 //
@@ -36,15 +37,15 @@
 
 size_t g_num_confident_valences; // The number of valences we're confident about.
 
-// The Beast and Beast index are static because we want them in the bss segment. Pass around pointers as needed.
-static popularity_t *g_pop;
-static valence_t *g_bb = NULL; // this is the combined Beast & Beast index (bind), or bb
-static bb_ind_t *g_bind_seg = NULL; // fixed x locations which are the offsets of the X's in the bb
-static valence_t *g_bb_ds = NULL; // this is the combined Beast & bind, or bb for the DS (Differently Sorted)
-static bb_ind_t *g_bind_seg_ds = NULL; // fixed y locations which are the offsets of the Y's in the bb_ds
+// These guys are static because we want them in the bss segment. Pass around pointers as needed.
+static popularity_t *g_pop = NULL;        // this is the popularity of the things to be recommended -- used for obscurity filtering
+static valence_t *g_bb = NULL;            // this is the combined Beast & Beast index (bind), or bb
+static bb_ind_t *g_bind_seg = NULL;       // fixed x locations which are the offsets of the X's in the bb
+static valence_t *g_bb_ds = NULL;         // this is the combined Beast & bind, or bb for the DS (Differently Sorted)
+static bb_ind_t *g_bind_seg_ds = NULL;    // fixed y locations which are the offsets of the Y's in the bb_ds
 static valence_xy_t *g_bb_ds_temp = NULL; // this is the combined Beast & bind, or bb for the DS (Differently Sorted), temp version for DS creation
-static rating_t *g_big_rat = NULL; // this is the valgen-outputted user ratings
-static uint32_t *g_big_rat_index = NULL; // this is a person index into g_big_rat
+static rating_t *g_big_rat = NULL;        // this is the valgen-outputted user ratings
+static uint32_t *g_big_rat_index = NULL;  // this is a person index into g_big_rat
 
 // forward declaration
 static int pull_from_files(bool);
@@ -655,7 +656,8 @@ static int pull_from_files(bool createDS)
 
     char fname[255];
     strlcpy(fname, BE.valence_cache_dir, sizeof(fname));
-    strlcat(fname, "/so_compressed.out", sizeof(fname));
+    strlcat(fname, "/", sizeof(fname));
+    strlcat(fname, SO_COMP_OUTFILE, sizeof(fname));
 
     // Check if dir exists and if it doesn't, create it.
     if (!check_make_dir(BE.valence_cache_dir))
@@ -1088,9 +1090,14 @@ void export_ds()
 // This function loads element popularity from the pop.out flat file.
 bool pop_load()
 {
+    if (NULL != g_pop)
+    {
+        free(g_pop);
+    }
+
     // +1 to allow addressing of elt to match.
     g_pop = (popularity_t *) malloc(sizeof(popularity_t) * (BE.num_elts + 1));
-    if (g_pop == 0)
+    if (NULL == g_pop)
     {
         syslog(LOG_ERR, "FATAL ERROR: Out of memory when creating popularity structure.");
         return (-1);
@@ -1236,13 +1243,25 @@ static void load_so_compressed()
 
 
 // Load valences from valgen output or beast output depending on passed-in read method.
-bool load_beast(int read_method, bool ds_load)
+bool  load_beast(int read_method, bool ds_load)
 {
     // Sanity check
     if (g_num_confident_valences == 0)
     {
         syslog(LOG_ERR, "FATAL ERROR: There are no confident valences so not much we can do. Exiting.");
         return (false);
+    }
+
+    // If g_bb and friends exist, clear 'em out first. This may be the situation if we got here because we're
+    // rebuilding valence cache in parallel during recgen runtime, and now we need to reload the cache.
+    // Elsewhere, we're already blocking the access to g_bb, so we don't need to worry about that here.
+    if (NULL != g_bb)
+    {
+        free(g_bb);
+        if (NULL != g_bind_seg) free(g_bind_seg);
+
+        // Seriously free the mem. Looking at you glibc.
+        malloc_trim(0);
     }
 
     // Create the bb.
@@ -1263,6 +1282,14 @@ bool load_beast(int read_method, bool ds_load)
 
     if (ds_load)
     {
+        if (NULL != g_bb_ds)
+        {
+            free(g_bb_ds);
+            if (NULL != g_bind_seg_ds) free(g_bind_seg_ds);
+
+            // Seriously free the mem. Looking at you glibc.
+            malloc_trim(0);
+        }
         // Create the bb_ds.
         g_bb_ds = (valence_t *) calloc(g_num_confident_valences, sizeof(valence_t));
         if (g_bb_ds == 0)
@@ -1304,6 +1331,15 @@ bool load_beast(int read_method, bool ds_load)
 // Load ratings from valgen output.
 bool big_rat_load()
 {
+    if (NULL != g_big_rat)
+    {
+        free(g_big_rat);
+        if (NULL != g_big_rat_index) free (g_big_rat_index);
+
+        // Really free the memory. Why, glibc?
+        malloc_trim(0);
+    }
+
     // Create the big_rat.
     g_big_rat = (rating_t *) calloc(BE.num_ratings, sizeof(rating_t));
     if (g_big_rat == 0)
@@ -1359,7 +1395,13 @@ bool big_rat_load()
 bool create_ds()
 {
     // Free the beast (if it exists) b/c we can't keep him in RAM at the same time as bb_ds.
-    if (g_bb) free(g_bb);
+    if (g_bb)
+    {
+        free(g_bb);
+
+        // Really get rid of the memory.
+        malloc_trim(0);
+    }
 
     // Create the bb_ds with special Valence_xy_t which is only used for DS creation b/c we need a simple way to sort during creation.
     g_bb_ds_temp = (valence_xy_t *) calloc(g_num_confident_valences, sizeof(valence_xy_t));

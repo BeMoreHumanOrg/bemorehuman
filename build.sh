@@ -53,14 +53,15 @@ ln -s  ~/build-valgen/valgen  ~/bin/valgen
 
 mkdir ~/build-recgen
 cd ~/build-recgen || exit
-cmake ~/src/bemorehuman/recgen  
+cmake -DCMAKE_BUILD_TYPE=Debug ~/src/bemorehuman/recgen
 cmake --build . --target all
 ln -s  ~/build-recgen/recgen  ~/bin/recgen
 
 # The test-accuracy binary needs to be in the ..bemorehuman/test-accuracy directory.
 # cmake will put it there and you can make a link to a friendlier place.
-mkdir ~/build-test-accuracy
-cd ~/build-test-accuracy || exit
-cmake ~/src/bemorehuman/test-accuracy  
+cd ~/src/bemorehuman/test-accuracy || exit
+mkdir build
+cd build || exit
+cmake ..  
 cmake --build . --target all
 ln -s ~/src/bemorehuman/test-accuracy/test-accuracy ~/bin/test-accuracy   
