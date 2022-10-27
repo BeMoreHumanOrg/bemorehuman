@@ -30,180 +30,140 @@
 # bemorehuman recommendation system.
 #
 # If you are starting with purchases or click events, you'll want to
-# choose the "implicit" choices below. Implicit means "implicit ratings."
-# The first step in the implicit choices is to generate ratings.
+# generate implicit ratings by adding "-r" on the command line.
 #
-# If you are starting with ratings such as user ratings of movies, you'll
-# want to choose the "explicit" choices below. Explicit means "explicit
-# ratings."
+# If you are starting with ratings such as user ratings of movies, you
+# won't need to use "-r" as you already have ratings.
 #
-# To generate ratings, valences, run the live recommender, and perform
-# some accuracy testing for a 5-bucket recommendation scale, run the
-# implicit-5-scale option:
+# In all cases, you'll need to specify "-s <scale>" on the command line to
+# indicate the scale. For example, "-s 10" means you have ratings in the
+# range 1-10 and you'll receive recommendations in the same scale.
 #
-#   bemorehuman imp5
+# If you want to run the test-accuracy script, specify "-t <test_people>"
+# where <test_people> is the number of randomized people you want to test
+# across. For example, to choose 30 random people to test, add "-t 30" to
+# the command line.
 #
-# To generate ratings, valences, run the live recommender, and perform
-# some accuracy testing for a 32-bucket recommendation scale, run the
-# implicit-32-scale option:
-#
-#   bemorehuman imp32
-#
-# To generate valences, run the live recommender, and perform
-# some accuracy testing for a 5-bucket recommendation scale, run the
-# explicit-5-scale option:
-#
-#   bemorehuman exp5
-#
-# To generate valences, run the live recommender, and perform
-# some accuracy testing for a 10-bucket recommendation scale, run the
-# explicit-10-scale option:
-#
-#   bemorehuman exp10
-#
-case $1 in
-     imp5)
-	 ratgen &     # create the ratings
-	 wait $!
-	 valgen &     # create the valences
-	 wait $!
-	 recgen -c &  # create the valence cache
-	 wait $!
-	 recgen -d &  # create the valence ds cache
-	 wait $!
-	 recgen &     # start the live recommender
-	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy || exit
-	 ./test-accuracy -g &
-	 wait $!
-	 ./test-accuracy -n 10 &
-	 wait $!
-	 ;;
-     
-     imp32)
-	 ratgen &     # create the ratings
-	 wait $!
-	 valgen &     # create the valences
-	 wait $!
-	 recgen -c &  # create the valence cache
-	 wait $!
-	 recgen -d &  # create the valence ds cache
-	 wait $!
-	 recgen -b 32 &  # start the live recommender
-	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy || exit
-	 ./test-accuracy -g -r 32 &
-	 wait $!
-	 ./test-accuracy -n 10 -r 32 &
-	 wait $!
-	 ;;
-     
-     exp5)
-	 valgen -r 5 &   # create the valences
-	 wait $!
-	 recgen -c &  # create the valence cache
-	 wait $!
-	 recgen -d &  # create the valence ds cache
-	 wait $!
-	 recgen &     # start the live recommender
-	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy || exit
-	 ./test-accuracy -g &
-	 wait $!
-	 ./test-accuracy -n 10 &
-	 wait $!
-	 ;;
-	 
-     exp10)
-	 valgen -r 10 &   # create the valences
-	 wait $!
-	 recgen -c &  # create the valence cache
-	 wait $!
-	 recgen -d &  # create the valence ds cache
-	 wait $!
-	 recgen -b 10 & # start the live recommender with output buckets on 10-scale
-	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy || exit
-	 ./test-accuracy -g -r 10 &
-	 wait $!
-	 ./test-accuracy -r 10 -n 10 &
-	 wait $!
-	 ;;
 
-     cont-exp10)
-	 valgen -r 10 &   # create the valences
-	 wait $!
-	 recgen -c &  # create the valence cache
-	 wait $!
-	 recgen -d &  # create the valence ds cache
-	 wait $!
-	 recgen -b 10 & # start the live recommender with output buckets on 10-scale
-	 sleep 2
-	 cd ~/src/bemorehuman/test-accuracy || exit
-   ./test-accuracy -g -r 10 &
-   wait $!
-   ./test-accuracy -r 10 -n 10 &
-   wait $!
+show_help() {
+    echo "Usage: ${0} [-r] -s scale [-t num_people]"
+    echo ""
+    echo "    -r                   # (optional) use this to generate ratings given events"
+    echo "    -s <scale>           # specify rating/recommendation scale (possible values 2-32)"
+    echo "    -t <test_people>     # (optional) run tests with test_people random people"
+    exit 0
+}
 
-   # Wait for an events file to arrive and once it's there process it.
-   BMH_EVENTS_FILE="/opt/bemorehuman/bmh_events.txt"
+# Enable the debug just to show what is going on...
+trap "set +x" QUIT EXIT
+set -x
 
-   # Enable the debug just to show what is going on...
-   trap "set +x" QUIT EXIT
-   set -x
+# Get parameters from command line.
+while getopts "rs:t:" opt; do
+    case "$opt" in
+    r)
+        ratings_gen=1
+        ;;
+    s)
+        scale=${OPTARG}
+        ;;
+    t)
+        test_people=${OPTARG}
+	      ;;
+    *)
+        show_help
+        exit 0
+        ;;
+    esac
+done
 
-   # Begin loop over waiting/processing new events.
-   while true;
-   do
+shift $((OPTIND-1))
+[ "$1" = "--" ] && shift
 
-       # Wait here until there's an events file we need to process.
-       while [ ! -f "$BMH_EVENTS_FILE" ];
-       do
-           sleep 30
-       done
+# If required variables aren't set, show help and exit.
+unset MISSING_PARAM
+if [ -z ${scale} ]; then
+    MISSING_PARAM="${MISSING_PARAM} s"
+fi
 
-       # cat the new file to the bottom of the old one.
-       cat $BMH_EVENTS_FILE >> /opt/bemorehuman/ratings.out  # we know it's ratings.out b/c we're in explicit land
+if [ ${MISSING_PARAM} ] ; then
+    echo "Error: Missing required parameter"
+    for PARAM in ${MISSING_PARAM}; do
+        echo "    -${PARAM}"
+    done
+    echo ""
+    show_help
+    exit 0
+fi
 
-       # generates optional ratings (no need b/c we're in explicit land
+# This file contains ratings or clicks or purchases, etc. that people exhibit while bemorehuman is live.
+BMH_EVENTS_FILE="/opt/bemorehuman/bmh_events.txt"
 
-       # generates valences
-       valgen -r 10 &
-       wait $!
+# This file contains non-ratings like clicks or purchases, etc. that are input to the ratgen process.
+INPUT_EVENTS_FILE="/opt/bemorehuman/events.txt"
 
-       # creates both valence caches (don't have to worry about malloc_trim b/c this is a sep. process)
-       recgen -c &  # create the valence cache
-       wait $!
-       recgen -d &  # create the valence ds cache
-       wait $!
+# Now take the inputs from above and start the looping pipeline
+# Begin loop over waiting/processing new events.
+while true;
+do
+    #  Optionally generate ratings.
+    if [ ${ratings_gen} ]; then
+        ratgen &
+        wait $!
+    fi
 
-       # cat the latest bmh events file to bottom of "processed" file
-       cat $BMH_EVENTS_FILE >> /opt/bemorehuman/bmh_events_processed.txt
+    # Generates valences.
+    valgen -r ${scale} &   # create the valences
+    wait $!
 
-       # remove the events file
-       rm $BMH_EVENTS_FILE
+    # Create both valence caches (don't have to worry about malloc_trim b/c these are separate processes)
+    recgen -c &  # create the valence cache
+    wait $!
+    recgen -d &  # create the valence ds cache
+    wait $!
 
-       # send signal to long-running recgen (recgen then reloads valence cache)
-       PID=$(pgrep recgen)
-       kill -SIGUSR1 "$PID";           # send SIGUSR1 to recgen which will reload caches
-       sleep 3;                        # todo: make a "ready" tmp file here instead of a sleep?
+    # Do we have a bemorehuman-generated events file from previous loop and a live recgen?
+    PID=$(pgrep recgen)
+    if [ -f ${BMH_EVENTS_FILE} ] && [ ${PID} ]; then
+        # Remove the events file.
+        rm ${BMH_EVENTS_FILE}
 
-       # run test-accuracy twice
-       cd ~/src/bemorehuman/test-accuracy || exit
-       ./test-accuracy -g -r 10 &
-       wait $!
-       ./test-accuracy -r 10 -n 10 &
-       wait $!
+        # Send signal to long-running recgen (recgen then reloads valence cache)
+        kill -s USR1 "$PID" # send SIGUSR1 to recgen which will reload caches
+    else
+        # Start the live recommender with output buckets of scale ${scale}.
+        recgen -b ${scale} &
+        sleep 2
+    fi
 
-   # End loop over waiting/processing new events.
-   done
-	 ;;
+    if [ ${test_people} ]; then
+        sleep 3;                        # todo: make a "ready" tmp file here instead of a sleep?
+        cd ~/src/bemorehuman/test-accuracy || exit
+        ./test-accuracy -g -r ${scale} &
+        wait $!
+        ./test-accuracy -r ${scale} -n ${test_people} &
+        wait $!
+    fi
 
-     *)
-	 echo Usage: bemorehuman [imp5] [imp32] [exp5] [exp10] [cont-exp10]
-	 ;;
-esac
+    # Wait here until there's an events file we need to process.
+    while [ ! -f "$BMH_EVENTS_FILE" ];
+    do
+        sleep 30
+    done
 
+    # NOTE: If the BMH_EVENTS_FILE contains non-ratings, then we need to cat it to events file, not ratings file.
+    # Check how this script was started and if started to deal with non-ratings events then follow that.
+    if [ ${ratings_gen} ]; then
+        # We know it's events.txt b/c we're in implicit land.
+        cat $BMH_EVENTS_FILE >> $INPUT_EVENTS_FILE
+    else
+        # We know it's ratings.out b/c we're in explicit land.
+        cat $BMH_EVENTS_FILE >> /opt/bemorehuman/ratings.out
+    fi
 
+    # cat the latest bmh events file to bottom of "processed" file
+    cat $BMH_EVENTS_FILE >> /opt/bemorehuman/bmh_events_processed.txt
 
+# End loop over waiting/processing new events.
+done
 exit 0

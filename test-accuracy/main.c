@@ -31,6 +31,7 @@ static rating_t *g_big_rat = NULL; // this is the valgen-outputted user ratings
 static uint32_t *g_big_rat_index = NULL; // this is a person index into g_big_rat
 static bool g_group_test = false;
 static size_t g_num_testing_people = 0;
+static bool g_test_event_call = false;
 
 /*
  
@@ -357,55 +358,58 @@ void TestAccuracy(void)
         //
         // 4) call server with some /event calls to add some events, just to test /event call
 
-        // We want to call /event num_held_back times just to test things out. No particular reason for this number.
-        for (i = 0; i < num_held_back; i++)
+        if (g_test_event_call == true)
         {
-            // clear out raw_response
-            memset(raw_response, 0, sizeof(raw_response));
-
-            // NOTE: test-accuracy can't currently test for non-explicit events, so we must test for ratings.
-            size_t made_up_rating = i % (size_t) g_ratings_scale;
-            make_pb_scen_3_file((uint32_t) userids[userCounter],
-                                (uint32_t) i + 1,
-                                made_up_rating == 0 ? 1 : (unsigned int) made_up_rating);
-
-
-            start = current_time_micros();
-            len = call_bemorehuman_server(3, (char *) raw_response);
-            finish = current_time_micros();
-            total_time += (finish - start);
-            printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
-            if (0 == len)
+            // We want to call /event num_held_back times just to test things out. No particular reason for this number.
+            for (i = 0; i < num_held_back; i++)
             {
-                printf("ERROR: length of response from event call is 0. Check server logs.\n");
-                return;
-            }
+                // clear out raw_response
+                memset(raw_response, 0, sizeof(raw_response));
 
-            EventResponse *message_in2;
+                // NOTE: test-accuracy can't currently test for non-explicit events, so we must test for ratings.
+                size_t made_up_rating = i % (size_t) g_ratings_scale;
+                make_pb_scen_3_file((uint32_t) userids[userCounter],
+                                    (uint32_t) i + 1,
+                                    made_up_rating == 0 ? 1 : (unsigned int) made_up_rating);
 
-            // Now we are ready to decode the message.
-            message_in2 = event_response__unpack(NULL, len, raw_response);
 
-            // Must check for NULL
-            if (NULL == message_in2)
-            {
-                printf("ERROR: len from event call is %lu\n", len);
-                printf("ERROR: response from event call is NULL. Exiting.\n");
-                exit(-1);
-            }
+                start = current_time_micros();
+                len = call_bemorehuman_server(3, (char *) raw_response);
+                finish = current_time_micros();
+                total_time += (finish - start);
+                printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
+                if (0 == len)
+                {
+                    printf("ERROR: length of response from event call is 0. Check server logs.\n");
+                    return;
+                }
 
-            // Print the data contained in the message.
-            printf("status from event response is ---%s---\n", message_in2->status);
-            assert(! strcmp(message_in2->status, "ok"));
-            printf("result from event response is ---%d---\n", message_in2->result);
+                EventResponse *message_in2;
 
-            // protobuf cleanup
-            event_response__free_unpacked(message_in2, NULL);
+                // Now we are ready to decode the message.
+                message_in2 = event_response__unpack(NULL, len, raw_response);
 
-            // unlink fname;
-            unlink(fname);
+                // Must check for NULL
+                if (NULL == message_in2)
+                {
+                    printf("ERROR: len from event call is %lu\n", len);
+                    printf("ERROR: response from event call is NULL. Exiting.\n");
+                    exit(-1);
+                }
 
-        } // end for loop over num_held_back
+                // Print the data contained in the message.
+                printf("status from event response is ---%s---\n", message_in2->status);
+                assert(! strcmp(message_in2->status, "ok"));
+                printf("result from event response is ---%d---\n", message_in2->result);
+
+                // protobuf cleanup
+                event_response__free_unpacked(message_in2, NULL);
+
+                // unlink fname;
+                unlink(fname);
+
+            } // end for loop over num_held_back
+        } // end if we want to test the /event call
 
         /*
          * Scenario: dynamic scan
@@ -620,9 +624,13 @@ int main(int argc, char **argv)
             g_server_location = TEST_LOC_STAGE;
             printf("*** Testing against stage... ***\n");
             break;
+        case 't':                              // for "test /event call"
+            g_test_event_call = true;
+            printf("*** Testing the /event call. NOTE: This will send random ratings to the server. ***\n");
+            break;
         default:
-            printf("Don't understand. Check args. Need one or more of g, n, p, r, or s. \n");
-            fprintf(stderr, "Usage: %s [-g | -n num_testing_people | -p | -r ratings_buckets | -s]\n", argv[0]);
+            printf("Don't understand. Check args. Need one or more of g, n, p, r, s, or t. \n");
+            fprintf(stderr, "Usage: %s [-g | -n num_testing_people | -p | -r ratings_buckets | -s | -t]\n", argv[0]);
             exit(EXIT_FAILURE);
         } // end switch
     } // end while

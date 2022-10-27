@@ -382,7 +382,7 @@ static void event(FCGX_Request request)
     // input: userid, eltid, (optional) event_value such as a rating
     // output: success or failure
     // 2 steps:
-    // 1. Persist input event to filesystem.
+    // 1. Persist input event to in-memory structure and possibly filesystem.
     // 2. Construct & send protobuf output.
 
     EventResponse pb_response = EVENT_RESPONSE__INIT;              // declare the response
@@ -404,7 +404,7 @@ static void event(FCGX_Request request)
     event.elementid = 0;
     event.eventval = 0;
 
-    // 1. Persist input event to filesystem.
+    // 1. Persist input event to in-mem structure and maybe filesystem.
     Event *message_in;
     message_in = event__unpack(NULL, post_len, post_data);
     // Check for errors
@@ -537,6 +537,7 @@ static void *start_fcgi_worker(void *arg)
         // Do we need to wait for valences to reload?
         while (wait_for_valence_reload)
         {
+            syslog(LOG_INFO, "recgen is waiting for valences to reload...");
             sleep(1);
         }
 
@@ -620,10 +621,6 @@ static void initialize_structures()
 
     bool retval;
 
-    // xxx
-    // Run malloc_trim(0) to free the mem (do this inside sub-functions if target is non-zero)
-
-
     // Load up Beast with valences and load the DS.
     retval = load_beast(LOAD_VALENCES_FROM_BEAST_EXPORT, true);
     if (true != retval)
@@ -661,7 +658,7 @@ void sig_handler(int signo)
     if (signo == SIGUSR1)
     {
         syslog(LOG_INFO, "recgen received SIGUSR1.");
-        // xxx
+
         // Block all threads from accessing beast and beast ds.
         wait_for_valence_reload = true;
 
@@ -669,7 +666,7 @@ void sig_handler(int signo)
         initialize_structures();
 
         // Unblock other threads from accessing beast and beast ds
-        wait_for_valence_reload = true;
+        wait_for_valence_reload = false;
     }
 
 } // end sig_handler()
