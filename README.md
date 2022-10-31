@@ -115,6 +115,11 @@ OSS? Reuse Software compliance is something that helps legal teams do their anal
 bemorehuman is fully Reuse Software compliant. That's important to us to help companies or
 anyone else interested to adopt our software.
 
+- No telemetry, no downloading of external models - bemorehuman does not "phone home." Nor 
+does it download external models (or anything else) from the internet. Your data is your data 
+and we have no interest in it. Additinoally, you might want to run bemorehuman disconnected 
+from the internet, so we fully support that use case.
+
 ## Where can I find out more?
 
 For help getting started with the code:
