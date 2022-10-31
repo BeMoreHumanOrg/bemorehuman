@@ -16,11 +16,14 @@ system via a REST interface and receive recommendation in real-time.
 
 ## Why is it useful?
 
-Recommending things to people is something that lots of companies have tried to do for many
-years. Everyone from Amazon to Netflix to TikTok and even smaller content providers and
-ecommerce stores want to recommend things to visitors and shoppers. These recommendations
-can appear on a website, in email, in a feed, or really wherever a person interacts with
-the company or brand.
+People don't want to waste time getting poor quality recommedations. Often, when the word 
+"recommendation" is used what's really meant is "popular thing for your demographic." If you're
+lucky, that is. If you're not lucky, recommendation can easily mean "different models of
+the thing you just bought" or "whatever we're paid to promote this week." Our software takes
+a different view. We think it's most important to give recommendations purely based on what
+the individual receiving the recs might like. This way, the traditional marketer-focused 
+mechanisms can be bypassed and focus can be given to what people would find interesting or
+useful.  
 
 ## How it works
 
