@@ -187,7 +187,7 @@ a database easily if you like.
 
 - A webserver with fcgi capability. I like nginx for the simple fact it is commonly used and has a
 smart event model.
-  - see nginx.conf in bemorehuman/config dir for a sample
+  - see nginx.conf in bemorehuman/config dir for a sample of how to configure nginx for bemorehuman
 - You can get standard fcgi from lots of places; I used: https://github.com/toshic/libfcgi
   - on Debian or Ubuntu, install libfcgi-dev OR
   - on Void Linux, install fcgi-devel 

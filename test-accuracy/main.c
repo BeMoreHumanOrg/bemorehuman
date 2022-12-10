@@ -376,7 +376,6 @@ void TestAccuracy(void)
                 start = current_time_micros();
                 len = call_bemorehuman_server(3, (char *) raw_response);
                 finish = current_time_micros();
-                total_time += (finish - start);
                 printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
                 if (0 == len)
                 {
@@ -525,10 +524,13 @@ void TestAccuracy(void)
         }
     } // end iterating over the users
 
-    printf("\nTotal time is %lld micros (%lld millis) to generate a total of %d recs, or %lld millis per rec.\n",
-           total_time, total_time / 1000, total_held_back,
-           (unsigned long long) bmh_round(((double) total_time / 1000) / (double) total_held_back));
+    printf("\nTotal time is %lld micros (%lld millis) to generate a total of %lu strongest recs, or %lld millis per rec.\n",
+           total_time,
+           total_time / 1000,
+           20 * g_num_testing_people,
+           (unsigned long long) bmh_round(((double) total_time / 1000) / (double) (20 * g_num_testing_people)));
 
+    printf("Overall timing for needle-in-haystack recs used to determine MAE was not calculated.\n");
     // 8) collate & print results: specifically, overall average distance from 5 for all the users we're looking at
     double overall_avg = 0.0;
     int sum_num_found = 0;
