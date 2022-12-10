@@ -283,14 +283,49 @@ int main(int argc, char **argv)
     if (status)
         syslog(LOG_ERR, "status from ---%s--- is %d", couple, status);
 
-    // Create a small file with the num_confident_valences
-    sprintf(couple, "cd %s; grep t valences.out | wc | cut -d ' ' -f 1 > num_confident_valences.out",
-            BE.working_dir);
+    // Create a small file to store the num_confident_valences.
+    // Open the input file.
+    char infile_str[512], outfile_str[512];
+    sprintf(infile_str, "%s/%s", BE.working_dir, "valences.out");
+    FILE *infile = fopen(infile_str, "r");
+    if (infile == NULL)
+    {
+        printf("Error: unable to open input file %s\n. Exiting.", infile_str);
+        syslog(LOG_ERR, "Unable to open file %s", infile_str);
+        exit(-1);
+    }
 
-    // Execute the grep command
-    status = system(couple);
-    if (status)
-        syslog(LOG_ERR, "status from ---%s--- is %d", couple, status);
+    // Open the output file.
+    sprintf(outfile_str, "%s/%s", BE.working_dir, "num_confident_valences.out");
+    FILE *outfile = fopen(outfile_str, "w");
+    if (outfile == NULL)
+    {
+        printf("Error: unable to open output file %s\n. Exiting.", outfile_str);
+        syslog(LOG_ERR, "Unable to open file %s", outfile_str);
+        exit(-1);
+    }
+
+    // Initialize the counter.
+    int count = 0;
+
+    // Read each line of the input file and check for 't' which means we care about it.
+    char line[256];
+    while (fgets(line, sizeof(line), infile) != NULL)
+    {
+       char *ptr = strrchr(line, 't');
+       if (NULL != ptr)
+           count++;
+    }
+
+    printf("num_confident_valences is %d\n", count);
+    syslog(LOG_INFO, "num_confident_valences is %d", count);
+
+    // Write the final value of the counter to the output file.
+    fprintf(outfile, "%d", count);
+
+    // Close the input and output files
+    fclose(infile);
+    fclose(outfile);
 
     // Record the end time.
     finish = current_time_millis();

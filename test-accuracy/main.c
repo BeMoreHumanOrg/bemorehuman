@@ -525,9 +525,9 @@ void TestAccuracy(void)
         }
     } // end iterating over the users
 
-    printf("\nTotal time is %lld micros (%lld millis) to generate recs for %zu people, or %lld millis per person.\n",
-           total_time, total_time / 1000, g_num_testing_people,
-           (unsigned long long) bmh_round(((double) total_time / 1000) / (double) g_num_testing_people));
+    printf("\nTotal time is %lld micros (%lld millis) to generate a total of %d recs, or %lld millis per rec.\n",
+           total_time, total_time / 1000, total_held_back,
+           (unsigned long long) bmh_round(((double) total_time / 1000) / (double) total_held_back));
 
     // 8) collate & print results: specifically, overall average distance from 5 for all the users we're looking at
     double overall_avg = 0.0;

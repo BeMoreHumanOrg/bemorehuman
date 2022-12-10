@@ -24,7 +24,9 @@
 // This file is part of bemorehuman. See https://bemorehuman.org
 
 #include <signal.h>
+#if linux
 #include <bits/signum-generic.h>
+#endif
 #include "recgen.h"
 
 // This is the bemorehuman recommendation engine.
@@ -531,6 +533,13 @@ static void *start_fcgi_worker(void *arg)
         FCGX_PutS("Content-Type: application/octet-stream\r\n\r\n", request.out);
 
         const char *request_uri = FCGX_GetParam("REQUEST_URI", request.envp);
+
+        // If the request is empty, all bets are off. Bail.
+        if (NULL == request_uri)
+        {
+            syslog(LOG_ERR, "recgen received empty request and can't continue. Something's broken upstream.");
+            exit(EXIT_FAILURE);
+        }
 
         size_t len_request_uri = strlen(request_uri);
 
