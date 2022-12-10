@@ -191,9 +191,11 @@ smart event model.
 - You can get standard fcgi from lots of places; I used: https://github.com/toshic/libfcgi
   - on Debian or Ubuntu, install libfcgi-dev OR
   - on Void Linux, install fcgi-devel 
+  - on NetBSD, install www/fcgi
 - An implementation of protobuf-c:
   - on Debian or Ubuntu via "sudo apt install libprotobuf-c-dev protobuf-c-compiler" OR
   - on Void Linux via "sudo xbps-install protobuf-c-devel" OR
+  - on NetBSD, install devel/protobuf-c
   - from github.com/protobuf-c
 
   If you don't have a recgen.proto in the bemorehuman/recgen dir (it should already be there)
