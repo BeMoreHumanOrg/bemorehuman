@@ -1260,8 +1260,10 @@ bool  load_beast(int read_method, bool ds_load)
         free(g_bb);
         if (NULL != g_bind_seg) free(g_bind_seg);
 
+#ifdef linux
         // Seriously free the mem. Looking at you glibc.
         malloc_trim(0);
+#endif
     }
 
     // Create the bb.
@@ -1286,9 +1288,10 @@ bool  load_beast(int read_method, bool ds_load)
         {
             free(g_bb_ds);
             if (NULL != g_bind_seg_ds) free(g_bind_seg_ds);
-
+#ifdef linux
             // Seriously free the mem. Looking at you glibc.
             malloc_trim(0);
+#endif
         }
         // Create the bb_ds.
         g_bb_ds = (valence_t *) calloc(g_num_confident_valences, sizeof(valence_t));
@@ -1336,8 +1339,10 @@ bool big_rat_load()
         free(g_big_rat);
         if (NULL != g_big_rat_index) free (g_big_rat_index);
 
+#ifdef linux
         // Really free the memory. Why, glibc?
         malloc_trim(0);
+#endif
     }
 
     // Create the big_rat.
@@ -1399,8 +1404,10 @@ bool create_ds()
     {
         free(g_bb);
 
-        // Really get rid of the memory.
+#ifdef linux
+        // Seriously free the mem. Looking at you glibc.
         malloc_trim(0);
+#endif
     }
 
     // Create the bb_ds with special Valence_xy_t which is only used for DS creation b/c we need a simple way to sort during creation.

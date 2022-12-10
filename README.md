@@ -339,7 +339,7 @@ Expected Results:
 
 Please use the following numbers as a ballpark guide. All numbers below are from a desktop development machine.
 
-- In terms of speed, we see around "25 millis per person" for the time to generate recommendations,
+- In terms of speed, we see around "25 millis per rec" for the time to generate recommendations,
 but of course this is heavily dependent on your machine load and the random test users chosen at runtime.
 
 - In terms of accuracy, here is some representative output:

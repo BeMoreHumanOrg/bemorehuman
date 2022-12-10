@@ -31,10 +31,6 @@ set(CMAKE_C_STANDARD 99)
 
 project(recgen)
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
-    set(LINUX TRUE)
-endif()
-
 # OTHER_SOURCE_FILES are things I didn't write and so I want to relax a bit with compilation flags
 set(OTHER_SOURCE_FILES
         recgen.pb-c.c
@@ -49,13 +45,18 @@ set(MY_SOURCE_FILES
 
 set(SOURCE_FILES ${MY_SOURCE_FILES} ${OTHER_SOURCE_FILES})
 
-if(LINUX)
-link_directories(/usr/lib)
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    include_directories(/opt/pkg/include)
+    link_directories(/opt/pkg/lib)
 endif()
 
-if(APPLE)
-include_directories(/opt/pkg/include)
-link_directories(/opt/pkg/lib)
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    link_directories(/usr/lib)
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
+    include_directories(/usr/pkg/include)
+    link_directories(/usr/pkg/lib)
 endif()
 
 add_executable(recgen ${SOURCE_FILES})
