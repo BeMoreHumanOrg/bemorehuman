@@ -331,7 +331,15 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     // Are we recommending top numRecs items?
     if (0 == eltid)
     {
+#ifdef __linux__
         qsort(g_workingset, BE.num_elts, sizeof(prediction_t), predcmp);
+#endif
+
+#ifdef __NetBSD__
+        // On NetBSD, qsort is very slow for this particular situation. Mergesort is much faster.
+        mergesort(g_workingset, BE.num_elts, sizeof(prediction_t), predcmp);
+#endif
+        
         // Copy workingset to recs. Note that numRecs is small. Bit below
         // should work b/c we've just sorted WorkingSet by pred value
         int ws_walker = 0;
