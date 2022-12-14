@@ -12,7 +12,7 @@ bemorehuman is a recommendation engine; sometimes these things are called recomm
 It recommends things such as books, or movies, or beer, or music bands to people. You input
 implicit or explicit ratings data or purchase data or click data, and bemorehuman will build
 a model of that dataset. With the model built and loaded into RAM, you can then query the
-system via a REST interface and receive recommendation in real-time. 
+system via a REST interface and receive recommendations in real-time. 
 
 ## Why is it useful?
 
