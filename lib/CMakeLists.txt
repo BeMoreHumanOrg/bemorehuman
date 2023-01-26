@@ -24,7 +24,7 @@
 # This file is part of bemorehuman. See https://bemorehuman.org
 
 cmake_minimum_required(VERSION 3.15)
-project(bmhlib C)
+project(bmh C)
 
 set(CMAKE_C_STANDARD 99)
 
@@ -33,7 +33,7 @@ set(CMAKE_INSTALL_PREFIX "/usr")
 include_directories(.)
 
 add_library(
-    bmhlib
+    bmh
     SHARED
     config.c
     helpers.c
@@ -42,12 +42,12 @@ add_library(
 )
 
 set_target_properties(
-    bmhlib
+    bmh
     PROPERTIES
     PUBLIC_HEADER bmh-config.h
     OUTPUT_NAME "bmh"
 )
 
-install(TARGETS bmhlib)
+install(TARGETS bmh)
 
 install(FILES ../config/bemorehuman.conf DESTINATION /etc/bemorehuman)
