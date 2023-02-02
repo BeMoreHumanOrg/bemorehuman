@@ -160,7 +160,7 @@ static void internal_singlerec(FCGX_Request request)
                    message_in->personid);
             error_state = true;
         }
-        // end making the recs real! This is the merging of recgenapp server and real recs.
+        // end making the recs real! This is the merging of recgen server and real recs.
 
         // Clear out stuff for next user.
         free(ratings);
@@ -608,7 +608,7 @@ static void populate_ncv()
         if (line_length && (line[line_length - 1] == '\r'))
             line[--line_length] = '\0';
 
-        // Convert line to an size_t.
+        // Convert line to a size_t.
         g_num_confident_valences = (size_t) strtol(line, NULL, 10);
         syslog(LOG_INFO, "num_confident_valences is %lu", g_num_confident_valences);
     }

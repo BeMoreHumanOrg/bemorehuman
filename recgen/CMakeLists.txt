@@ -78,3 +78,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LE
 
 target_link_libraries(${PROJECT_NAME} m fcgi pthread protobuf-c bmh)
 
+install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+        )
+
+

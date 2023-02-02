@@ -189,14 +189,14 @@ a database easily if you like.
 smart event model.
   - see nginx.conf in bemorehuman/config dir for a sample of how to configure nginx for bemorehuman
 - You can get standard fcgi from lots of places; I used: https://github.com/toshic/libfcgi
-  - on Debian or Ubuntu, install libfcgi-dev OR
+  - on Debian or Ubuntu, install libfcgi-dev 
   - on Void Linux, install fcgi-devel 
   - on NetBSD, install www/fcgi
 - An implementation of protobuf-c:
-  - on Debian or Ubuntu via "sudo apt install libprotobuf-c-dev protobuf-c-compiler" OR
-  - on Void Linux via "sudo xbps-install protobuf-c-devel" OR
+  - on Debian or Ubuntu, "sudo apt install libprotobuf-c-dev protobuf-c-compiler" 
+  - on Void Linux, install protobuf-c-devel 
   - on NetBSD, install devel/protobuf-c
-  - from github.com/protobuf-c
+  - OR on any OS from github.com/protobuf-c
 
   If you don't have a recgen.proto in the bemorehuman/recgen dir (it should already be there)
   - modify recgen.proto as needed then generate the recgen .c and .h (recgen.pb-c.c/.h) on command line:
@@ -205,6 +205,7 @@ smart event model.
   - curl
   - openssl dev package
     - on Debian or Ubuntu, it's libssl-dev
+    - on Void Linux, it's openssl-devel
 
 #### Directory structure
 
@@ -214,24 +215,26 @@ smart event model.
   - valgen (valence generator)
   - recgen (runtime recommendation server)
   - test-accuracy (client-side commandline tester)
-    - testfiles (testing files used in conjunction with test-accuracy)
   - config (various config files)
 
 #### To build bemorehuman
 
-Run build.sh and remedy any "FAIL" messages you may need to. The build script:
-- assumes you've downloaded and unpacked the source code to ~/src/bemorehuman
-- will create a few "build-xxx" directories in your home dir, corresponding to the binaries to be built
-  (needs work to be less manual)
-  
-More details:
-We use cmake to build. These are the binaries to be built and they all have their own CMakeLists.txt:
+Follow the regular cmake way of building:
 
-bmhlib (shared library)
-ratgen
-valgen
-recgen
-test-accuracy
+     cd ~/src/bemorehuman  (or whereever the bemorehuman source is on your machine)
+     mkdir build; cd build
+     cmake ..
+     cmake --build .   
+     sudo make install     (root is used to install the include/library/binaries and create config file under /etc)
+
+Binaries built:
+These are the binaries that get created automatically in the above cmake process and they all have their own CMakeLists.txt:
+
+- bmhlib (shared library)
+- ratgen
+- valgen
+- recgen
+- test-accuracy
 
 #### Additional build notes
 

@@ -56,7 +56,7 @@ static void make_pb_scen_2_file(uint32_t userid)
 
     // ok, write the protobuf to a file
     char proto_fname[128];
-    sprintf(proto_fname, "./pbfiles/scenario_2.pb");
+    sprintf(proto_fname, "/tmp/scenario_2.pb");
 
     FILE *proto_tmpfile = fopen(proto_fname, "w");
     assert(NULL != proto_tmpfile);
@@ -88,7 +88,7 @@ static void make_pb_scen_3_file(uint32_t userid, uint32_t elementid, uint32_t ev
 
     // ok, write the protobuf to a file
     char proto_fname[128];
-    sprintf(proto_fname, "./pbfiles/scenario_3.pb");
+    sprintf(proto_fname, "/tmp/scenario_3.pb");
 
     FILE *proto_tmpfile = fopen(proto_fname, "w");
     assert(NULL != proto_tmpfile);
@@ -445,7 +445,7 @@ void TestAccuracy(void)
             // if we're on prod or stage, add a _prod
             if (TEST_LOC_DEV != g_server_location) strcpy(suffix, "_prod");
 
-            sprintf(fname, "./scenario_110%s.pb", suffix);
+            sprintf(fname, "/tmp/scenario_110%s.pb", suffix);
 
             FILE *tmpfile_scan = fopen(fname, "w");
             assert(NULL != tmpfile_scan);

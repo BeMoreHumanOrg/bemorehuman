@@ -60,4 +60,7 @@ set_target_properties(valgen PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_L
 
 target_link_libraries(${PROJECT_NAME} m pthread bmh)
 
+install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+        )
 

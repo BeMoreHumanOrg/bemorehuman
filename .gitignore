@@ -7,6 +7,7 @@
 # bemorehuman and stuff forgotten by toptal
 *.pb
 CMakeSettings.json
+build/
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,cmake,emacs,intellij+all,visualstudio,visualstudiocode
