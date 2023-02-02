@@ -25,8 +25,6 @@
 
 cmake_minimum_required(VERSION 3.6)
 
-set(CMAKE_C_COMPILER  "/usr/bin/cc")
-set(CMAKE_CXX_COMPILER  "/usr/bin/cc")
 set(CMAKE_C_STANDARD 99)
 
 project(ratgen)
@@ -58,5 +56,10 @@ set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_CO
 set_target_properties(ratgen PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
 
 target_link_libraries(${PROJECT_NAME} m bmh)
+
+install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+        )
+
 
 

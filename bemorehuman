@@ -138,10 +138,9 @@ do
 
     if [ ${test_people} ]; then
         sleep 3;                        # todo: make a "ready" tmp file here instead of a sleep?
-        cd ~/src/bemorehuman/test-accuracy || exit
-        ./test-accuracy -g -r ${scale} &
+        test-accuracy -g -r ${scale} &
         wait $!
-        ./test-accuracy -r ${scale} -n ${test_people} &
+        test-accuracy -r ${scale} -n ${test_people} &
         wait $!
     fi
 

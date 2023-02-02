@@ -25,8 +25,6 @@
 
 cmake_minimum_required(VERSION 3.6)
 
-set(CMAKE_C_COMPILER  "/usr/bin/cc")
-set(CMAKE_CXX_COMPILER  "/usr/bin/cc")
 set(CMAKE_C_STANDARD 99)
 
 project(recgen)
@@ -79,4 +77,9 @@ set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LE
 #target_link_options(${PROJECT_NAME} PUBLIC "-fsanitize=address")
 
 target_link_libraries(${PROJECT_NAME} m fcgi pthread protobuf-c bmh)
+
+install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+        )
+
 

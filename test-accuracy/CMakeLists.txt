@@ -25,10 +25,7 @@
 
 cmake_minimum_required(VERSION 3.7)
 
-set(CMAKE_C_COMPILER "/usr/bin/cc")
-set(CMAKE_CXX_COMPILER "/usr/bin/cc")
 set(CMAKE_C_STANDARD 99)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/..")
 
 project(test-accuracy)
 
@@ -79,3 +76,7 @@ set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_CO
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
 
 target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh crypto)
+
+install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+        )

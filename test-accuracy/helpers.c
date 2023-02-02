@@ -92,9 +92,7 @@ unsigned long call_bemorehuman_server(int scenario, char *raw_response)
             break;
         case 11:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "internal-singlerec", 11, file_suffix);
             break;
-        case DYNAMIC_RATE: sprintf(URL, RB_LOCAL_CURL_PB_PREFIX, server_loc, "rate", DYNAMIC_RATE, file_suffix);
-            break;
-        case DYNAMIC_SCAN: sprintf(URL, RB_LOCAL_CURL_PB_PREFIX, server_loc, "internal-singlerec", DYNAMIC_SCAN, file_suffix);
+        case DYNAMIC_SCAN: sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "internal-singlerec", DYNAMIC_SCAN, file_suffix);
             break;
         default: printf("*** Broken scenario value in call_bemorehuman_server! Bad.\n");
             break;
