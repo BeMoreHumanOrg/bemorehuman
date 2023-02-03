@@ -124,13 +124,20 @@ do
 
     # Do we have a bemorehuman-generated events file from previous loop and a live recgen?
     PID=$(pgrep recgen)
-    if [ -f ${BMH_EVENTS_FILE} ] && [ ${PID} ]; then
+    if [ -f ${BMH_EVENTS_FILE} ] && [ -n "${PID}" ]; then
         # Remove the events file.
         rm ${BMH_EVENTS_FILE}
 
         # Send signal to long-running recgen (recgen then reloads valence cache)
         kill -s USR1 "$PID" # send SIGUSR1 to recgen which will reload caches
     else
+        # Do we have any lingering recgen processes that need to be killed?
+        if [ -n "${PID}" ]; then
+            for procitem in ${PID}; do
+                kill -s KILL "$procitem"
+            done
+        fi
+
         # Start the live recommender with output buckets of scale ${scale}.
         recgen -b ${scale} &
         sleep 2
