@@ -37,17 +37,30 @@ static uint32_t *g_big_rat_index;
 static uint32_t g_event_counter = 0;
 static event_t g_events_to_persist[EVENTS_TO_PERSIST_MAX];
 static bool wait_for_valence_reload = false;
+static bool g_external_web_server = false;
+
 uint8_t g_output_scale = 5;
 
 
 // This is used for test-accuracy's -core alg testing only.
 // Output: a recommendation (-1 or 1..g_output_scale) for the passed-in element.
-static void internal_singlerec(FCGX_Request request)
+static void internal_singlerec(void *request)
 {
     // 3 steps:
     // 1. Get ratings for this user.
     // 2. Call prediction() with specific elementid (functionally similar to core testing scenario).
     // 3. Construct & send protobuf output.
+
+    // What type are we really dealing with on input?
+    FCGX_Request *f_req;
+    hum_request *h_req;
+
+    // external webserver means the input type is really *FCGX_Request
+    // internal webserver means the input type is really *hum_request
+    if (g_external_web_server)
+        f_req = (FCGX_Request *) request;
+    else
+        h_req = (hum_request *) request;
 
     size_t post_len;
     uint8_t post_data[FCGX_MAX_INPUT_STREAM_SIZE];
@@ -55,7 +68,17 @@ static void internal_singlerec(FCGX_Request request)
     InternalSingleRec *message_in;
 
     // Get the POSTed protobuf.
-    post_len = (size_t) FCGX_GetStr((char *) post_data, sizeof(post_data), request.in);
+    if (g_external_web_server)
+        post_len = (size_t) FCGX_GetStr((char *) post_data,
+                                        sizeof(post_data),
+                                        f_req->in);
+    else
+    {
+        post_len = h_req->in->content_length;
+        memcpy((char *) post_data,
+               (char *) h_req->in->content,
+               post_len);
+    }
 
     // Now we are ready to decode the message.
     message_in = internal_single_rec__unpack(NULL, post_len, post_data);
@@ -64,6 +87,8 @@ static void internal_singlerec(FCGX_Request request)
     if (!message_in)
     {
         syslog(LOG_ERR, "Protobuf decoding failed for internal singlerec.");
+        syslog(LOG_ERR, "post_len: %lu, post_data[0]: %x, post_data[1]: %x", post_len,
+               post_data[0], post_data[1]);
         return;
     }
 
@@ -196,7 +221,17 @@ static void internal_singlerec(FCGX_Request request)
 
     // Sent the protobuf to the client.
     int bytes_to_fcgi;
-    bytes_to_fcgi = FCGX_PutStr((const char *) buf, (int) len, request.out);
+
+    bytes_to_fcgi = (int) len;
+    if (g_external_web_server)
+        bytes_to_fcgi = FCGX_PutStr((const char *) buf, (int) len, f_req->out);
+    else
+    {
+        h_req->out->content_length = len;
+        h_req->out->type_status = HUM_RESPONSE_OK;
+        strncpy((char *) h_req->out->content, (const char *) buf, (int) len);
+    }
+
     if (bytes_to_fcgi != (int) len)
         syslog(LOG_ERR, "ERROR: bytes_to_fcgi is %d while message_length is %lu", bytes_to_fcgi, len);
 
@@ -210,16 +245,27 @@ static void internal_singlerec(FCGX_Request request)
 
 //
 // Provide recommendations for a person.
-// output: recommendations (values -1 to 5)
+// input: *void which can be *FCGX_Request or *hum_request
 //
-static void recs(FCGX_Request request)
+static void recs(void *request)
 {
-    // input: userid
+    // input: (inside the protobuf message) userid
     // output: the recs!
     // 3 steps:
     // 1. Get the ratings for the person.
     // 2. Pass ratings to recgen core.
     // 3. Construct & send protobuf output.
+
+    // What type are we really dealing with on input?
+    FCGX_Request *f_req;
+    hum_request *h_req;
+
+    // external webserver means the input type is really *FCGX_Request
+    // internal webserver means the input type is really *hum_request
+    if (g_external_web_server)
+        f_req = (FCGX_Request *) request;
+    else
+        h_req = (hum_request *) request;
 
     RecsResponse pb_response = RECS_RESPONSE__INIT;              // declare the response
     void *buffer = NULL;                                         // this is the output buffer
@@ -233,7 +279,18 @@ static void recs(FCGX_Request request)
 
     // Get the POSTed protobuf.
     size_t post_len;
-    post_len = (size_t) FCGX_GetStr((char *) post_data, sizeof(post_data), request.in);
+
+    if (g_external_web_server)
+        post_len = (size_t) FCGX_GetStr((char *) post_data,
+                                        sizeof(post_data),
+                                        f_req->in);
+    else
+    {
+        post_len = h_req->in->content_length;
+        memcpy((char *) post_data,
+                (char *) h_req->in->content,
+                post_len);
+    }
 
     // Now we are ready to decode the message.
     uint32_t personid;
@@ -359,7 +416,17 @@ static void recs(FCGX_Request request)
 
     // Send the protobuf to the client.
     finish_up:
-    bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, request.out);
+
+    bytes_to_fcgi = (int) len;
+    if (g_external_web_server)
+        bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, f_req->out);
+    else
+    {
+        h_req->out->content_length = len;
+        h_req->out->type_status = HUM_RESPONSE_OK;
+        strncpy((char *) h_req->out->content, (const char *) buffer, (int) len);
+    }
+
     if (bytes_to_fcgi != (int) len)
         syslog(LOG_ERR,
                "ERROR: in recs, bytes_to_fcgi is %d while message_length is %lu",
@@ -379,13 +446,24 @@ static void recs(FCGX_Request request)
 // Ingest an event such as a rating, listen, purchase, click, etc.
 // output: success or failure
 //
-static void event(FCGX_Request request)
+static void event(void *request)
 {
     // input: userid, eltid, (optional) event_value such as a rating
     // output: success or failure
     // 2 steps:
     // 1. Persist input event to in-memory structure and possibly filesystem.
     // 2. Construct & send protobuf output.
+
+    // What type are we really dealing with on input?
+    FCGX_Request *f_req;
+    hum_request *h_req;
+
+    // external webserver means the input type is really *FCGX_Request
+    // internal webserver means the input type is really *hum_request
+    if (g_external_web_server)
+        f_req = (FCGX_Request *) request;
+    else
+        h_req = (hum_request *) request;
 
     EventResponse pb_response = EVENT_RESPONSE__INIT;              // declare the response
     void *buffer = NULL;                                         // this is the output buffer
@@ -398,7 +476,18 @@ static void event(FCGX_Request request)
 
     // Get the POSTed protobuf.
     size_t post_len;
-    post_len = (size_t) FCGX_GetStr((char *) post_data, sizeof(post_data), request.in);
+
+    if (g_external_web_server)
+        post_len = (size_t) FCGX_GetStr((char *) post_data,
+                                        sizeof(post_data),
+                                        f_req->in);
+    else
+    {
+        post_len = h_req->in->content_length;
+        memcpy((char *) post_data,
+                (char *) h_req->in->content,
+                post_len);
+    }
 
     // Now we are ready to decode the message.
     event_t event;
@@ -498,10 +587,20 @@ static void event(FCGX_Request request)
 
     // Send the protobuf to the client.
     finish_up:
-    bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, request.out);
+
+    bytes_to_fcgi = (int) len;
+    if (g_external_web_server)
+        bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, f_req->out);
+    else
+    {
+        h_req->out->content_length = len;
+        h_req->out->type_status = HUM_RESPONSE_OK;
+        strncpy((char *) h_req->out->content, (const char *) buffer, (int) len);
+    }
+
     if (bytes_to_fcgi != (int) len)
         syslog(LOG_ERR,
-               "ERROR: in recs, bytes_to_fcgi is %d while message_length is %lu",
+               "ERROR: in event, bytes_to_fcgi is %d while message_length is %lu",
                bytes_to_fcgi, len);
 
     // Free protobuf allocations.
@@ -553,21 +652,21 @@ static void *start_fcgi_worker(void *arg)
         // /internal-singlerec call
         if ((23 == len_request_uri) && (!strcmp("/bmh/internal-singlerec", request_uri)))
         {
-            internal_singlerec(request);
+            internal_singlerec(&request);
             goto cleanup;
         }
 
         // /recs call
         if ((9 == len_request_uri) && (!strcmp("/bmh/recs", request_uri)))
         {
-            recs(request);
+            recs(&request);
             goto cleanup;
         }
 
         // /event call
         if ((10 == len_request_uri) && (!strcmp("/bmh/event", request_uri)))
         {
-            event(request);
+            event(&request);
             goto cleanup;
         }
 
@@ -576,6 +675,154 @@ static void *start_fcgi_worker(void *arg)
 
     } // end while (1)
 } // End start_fcgi_worker callback
+#pragma GCC diagnostic pop
+
+
+// Run this single worker with an infinite loop inside that will receive requests.
+// NOTE: clang understands the GCC pragma, but not vice-versa! So do it this way.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+static void *start_hum_worker(int hum_fd)
+{
+    // Thread-specific init stuff.
+    create_workingset(BE.num_elts);
+
+    while (1)
+    {
+        ssize_t bytes_read;
+        hum_record record_in;
+        char uri[256];
+        ssize_t len_request_uri;
+
+        // Get a request along with POST data.
+
+        // Now ready to accept. Use a new socket for this request.
+        int cl_fd;
+
+        // We don't care atm about the address & len of the connecting peer. Make them NULL.
+        // This connection will be on a new socket, cl_fd. The listening socket hum_fd remains
+        // open and can accept further connections.
+        // This will block.
+        cl_fd = accept(hum_fd, NULL, NULL);
+
+        // Read field-by-field
+        // Get the first byte which is the type.
+        bytes_read = read(cl_fd, &record_in.type_status, sizeof(uint8_t));
+        if (bytes_read < 0)
+        {
+            perror("Error reading request from hum server.");
+            close(cl_fd);
+            continue;
+        }
+        if (bytes_read == 0)
+        {
+            perror("Error bytes_read is 0 from hum server.");
+            close(cl_fd);
+            continue;
+        }
+        if (record_in.type_status == HUM_REQUEST_URI)
+        {
+            // Get the content length
+            bytes_read = read(cl_fd, &record_in.content_length, sizeof(uint32_t));
+
+            // Get the content.
+            bytes_read = read(cl_fd, &record_in.content, record_in.content_length);
+            if (bytes_read != record_in.content_length)
+            {
+                syslog(LOG_ERR, "bytes_read %zd is not the same as content_length %d", bytes_read, record_in.content_length);
+                syslog(LOG_ERR, "record_in.content is ---%s---", record_in.content);
+                exit(EXIT_FAILURE);
+            }
+            strncpy(uri, (char *) record_in.content, record_in.content_length);
+            uri[record_in.content_length] = '\0';
+        }
+
+        // Read next record_in, which should be the POST part of the request
+        bytes_read = read(cl_fd, &record_in.type_status, sizeof(uint8_t));
+        if (bytes_read < 0)
+        {
+            perror("Error reading POST part of request from hum server.");
+            close(cl_fd);
+            continue;
+        }
+        if (bytes_read == 0)
+        {
+            perror("Error bytes_read for POST part is 0 from hum server.");
+            close(cl_fd);
+            continue;
+        }
+        if (record_in.type_status == HUM_POST_DATA)
+        {
+            // Get the content length
+            bytes_read = read(cl_fd, &record_in.content_length, sizeof(uint32_t));
+
+            // Get the content.
+            bytes_read = read(cl_fd, &record_in.content, record_in.content_length);
+            if (bytes_read != record_in.content_length)
+            {
+                syslog(LOG_ERR, "bytes_read %zd for POST is not the same as content_length %d", bytes_read, record_in.content_length);
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        // So now we have uri, and POST data in record_in.content of length: record_in.content_length
+
+        len_request_uri = (ssize_t) strlen(uri);
+
+        // Do we need to wait for valences to reload?
+        while (wait_for_valence_reload)
+        {
+            syslog(LOG_INFO, "recgen is waiting for valences to reload...");
+            sleep(1);
+        }
+
+        hum_request request;
+        request.in = &record_in;
+        hum_record record_out;
+        request.out = &record_out;
+
+        // /internal-singlerec call
+        if ((23 == len_request_uri) && (!strcmp("/bmh/internal-singlerec", uri)))
+        {
+            internal_singlerec(&request);
+            goto finish;
+        }
+
+        // /recs call
+        if ((9 == len_request_uri) && (!strcmp("/bmh/recs", uri)))
+        {
+            recs(&request);
+            goto finish;
+        }
+
+        // /event call
+        if ((10 == len_request_uri) && (!strcmp("/bmh/event", uri)))
+        {
+            event(&request);
+            goto finish;
+        }
+
+        finish:
+        if (request.out->type_status == HUM_RESPONSE_OK)
+        {
+            // Everything's ok, and we need to send the response data to hum.
+            // Check for content-length > 0 first!
+            if (request.out->content_length > 0)
+            {
+                write(cl_fd, &request.out->type_status, sizeof(uint8_t));
+                write(cl_fd, &request.out->content_length, sizeof(uint32_t));
+                write(cl_fd, &request.out->content, request.out->content_length);
+            }
+        }
+        else if (request.out->type_status == HUM_RESPONSE_ERROR)
+        {
+            // check for content-length > 0 first!
+            if (request.out->content_length > 0)
+                write(cl_fd, request.out->content, request.out->content_length);
+        }
+        close(cl_fd);
+    } // end while (1)
+} // End start_hum_worker()
 #pragma GCC diagnostic pop
 
 
@@ -700,7 +947,7 @@ int main(int argc, char **argv)
 
     // Use getopt to help manage the options on the command line.
     int opt;
-    while ((opt = getopt(argc, argv, "cdb:")) != -1)
+    while ((opt = getopt(argc, argv, "cdb:x")) != -1)
     {
         switch (opt)
         {
@@ -723,6 +970,11 @@ int main(int argc, char **argv)
                 }
                 g_output_scale = strtol(optarg, NULL, 10);
                 break;
+            case 'x':   // for "eXternal web server"
+                printf("*** Using external web server ***\n");
+                g_external_web_server = true;
+                syslog(LOG_INFO, "*** Setting recgen to use external webserver");
+                break;
             default:
                 printf("Don't understand. Check args. Need one of c, d, or b. \n");
                 fprintf(stderr, "Usage: %s [-c] [-d] [-b buckets]\n", argv[0]);
@@ -736,7 +988,7 @@ int main(int argc, char **argv)
     // Populate the beast, g_pop, and ratings structures.
     initialize_structures();
 
-    // Begin connecting to fastcgi.
+    // Begin connecting to socket.
     // Strip off the filename from BE.recgen_socket_location.
     size_t len = strlen(BE.recgen_socket_location);
     char path[len+1];
@@ -760,43 +1012,86 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    int fcgi_fd = FCGX_OpenSocket(BE.recgen_socket_location, 128);
-    if (0 > fcgi_fd)
+    // Here is where we diverge if we're using hum or FastCGI.
+    if (g_external_web_server)
     {
-        syslog(LOG_ERR, "Can't open socket for communication with web server. Exiting.");
-        exit(EXIT_FAILURE);
-    }
+        int fcgi_fd = FCGX_OpenSocket(BE.recgen_socket_location, 128);
+        if (0 > fcgi_fd)
+        {
+            syslog(LOG_ERR, "Can't open socket for communication with web server. Exiting.");
+            exit(EXIT_FAILURE);
+        }
 
-    // Allow web server to write to the socket we just opened.
-    int returnval;
-    char system_string[len + 32];
-    strlcpy(system_string, "exec chmod o+w ", sizeof(system_string));
-    strlcat(system_string, BE.recgen_socket_location, sizeof(system_string));
-    returnval = system(system_string);
-    if (returnval != 0)
+        // Allow web server to write to the socket we just opened.
+        int returnval;
+        char system_string[len + 32];
+        strlcpy(system_string, "exec chmod o+w ", sizeof(system_string));
+        strlcat(system_string, BE.recgen_socket_location, sizeof(system_string));
+        returnval = system(system_string);
+        if (returnval != 0)
+        {
+            syslog(LOG_ERR, "Can't set permissions for unix socket. Exiting.");
+            exit(EXIT_FAILURE);
+        }
+        syslog(LOG_INFO, "successfully set socket %s to allow web server to write to it.", BE.recgen_socket_location);
+
+        const unsigned int n_threads = 2;
+
+        pthread_t threads[n_threads];
+
+        FCGI_info_t info;
+        info.fcgi_fd = fcgi_fd;
+
+        for (unsigned int i = 0; i < n_threads; i++)
+            pthread_create(&threads[i], NULL, start_fcgi_worker, (void *) &info);
+
+        // Wait indefinitely.
+        for (unsigned int i = 0; i < n_threads; i++)
+        {
+            pthread_join(threads[i], NULL);
+        }
+        // end fastcgi connectivity
+    } // end if g_external_webserver
+    else
     {
-        syslog(LOG_ERR, "Can't set permissions for unix socket. Exiting.");
-        exit(EXIT_FAILURE);
-    }
-    syslog(LOG_INFO, "successfully set socket %s to allow web server to write to it.", BE.recgen_socket_location);
+        // Ok, we're not using an external webserver; we're using our internal hum server.
+        // For now, assume that it's already up and running.
 
-    const unsigned int n_threads = 2;
+        // Open socket that will talk to our hum server.
+        int hum_fd;
+        struct sockaddr_un process_address;
 
-    pthread_t threads[n_threads];
+        hum_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (hum_fd < 0)
+        {
+            perror("Error creating socket for process.");
+            exit(EXIT_FAILURE);
+        }
 
-    FCGI_info_t info;
-    info.fcgi_fd = fcgi_fd;
+        // Check that length of path & file isn't too long.
+        if (strlen(BE.recgen_socket_location) > sizeof(process_address.sun_path) - 1)
+        {
+            perror("Server socket path too long.");
+            exit(EXIT_FAILURE);
+        }
 
-    for (unsigned int i = 0; i < n_threads; i++)
-        pthread_create(&threads[i], NULL, start_fcgi_worker, (void *) &info);
+        process_address.sun_family = AF_UNIX;
+        strcpy(process_address.sun_path, BE.recgen_socket_location);
 
-    // Wait indefinitely.
-    for (unsigned int i = 0; i < n_threads; i++)
-    {
-        pthread_join(threads[i], NULL);
-    }
-    // end fastcgi connectivity
+        // Now bind the listening socket.
+        unlink(process_address.sun_path);
 
+        if(bind(hum_fd, (struct sockaddr *) &process_address, sizeof(struct sockaddr_un)) < 0
+           || listen(hum_fd, 5) < 0)
+        {
+            perror("bind/listen");
+            exit(EXIT_FAILURE);
+        }
+
+        syslog(LOG_INFO, "successfully set socket %s to allow web server to write to it.", BE.recgen_socket_location);
+
+        start_hum_worker(hum_fd);
+    } // end else we're talking to hum server
     return (0);
 } // end main()
 

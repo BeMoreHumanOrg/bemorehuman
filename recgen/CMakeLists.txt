@@ -58,6 +58,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
 endif()
 
 add_executable(recgen ${SOURCE_FILES})
+add_executable(hum hum.c)
 
 # set compile flags for my source file only
 # can add "-fsanitize=address -fno-omit-frame-pointer" if I want to incur overhead of mem leak checking at runtime. Must add link flag -fsanitize....
@@ -69,16 +70,19 @@ set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -Wno-documentation-unknown-comma
 set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall ")
 
 set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
+set_source_files_properties(hum.c PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
 
 # set max log level
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
+set_target_properties(hum PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
 
 # uncomment line below to link in the allocation sanitizer for memory debugging
 #target_link_options(${PROJECT_NAME} PUBLIC "-fsanitize=address")
 
 target_link_libraries(${PROJECT_NAME} m fcgi pthread protobuf-c bmh)
+target_link_libraries(hum bmh)
 
-install(TARGETS ${PROJECT_NAME}
+install(TARGETS ${PROJECT_NAME} hum
         RUNTIME DESTINATION bin
         )
 
