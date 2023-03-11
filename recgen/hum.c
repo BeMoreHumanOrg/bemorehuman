@@ -45,6 +45,8 @@
 //
 //
 
+static int g_port = HUM_DEFAULT_PORT;
+
 // reverse:  reverse string s in place
 void reverse(char s[])
 {
@@ -78,7 +80,37 @@ void itoa(int n, char s[])
 }  // end itoa()
 
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
+    // Set up logging.
+    openlog(LOG_HUM_STRING, LOG_PID, LOG_LOCAL0);
+    setlogmask(LOG_UPTO (HUM_LOG_MASK));
+    syslog(LOG_INFO, "*** Begin hum invocation.");
+
+    // Use getopt to help manage the options on the command line.
+    int opt;
+    while ((opt = getopt(argc, argv, "p:")) != -1)
+    {
+        switch (opt)
+        {
+            case 'p':   // for "port number"
+                if (strtol(optarg, NULL, 10) < 0 || strtol(optarg, NULL, 10) > 65535)
+                {
+                    printf("Error: the argument for -p should be > 0 and < 65536 instead of %s. Exiting. ***\n", optarg);
+                    syslog(LOG_ERR, "The argument for -b should be > 0 and < 65536, instead of %s. Exiting. ***\n",
+                           optarg);
+                    exit(EXIT_FAILURE);
+                }
+                g_port = (int) strtol(optarg, NULL, 10);
+                break;
+            default:
+                printf("Don't understand. Check args. Can only accept -p at the mo' \n");
+                fprintf(stderr, "Usage: %s [-p portnum]\n", argv[0]);
+                exit(EXIT_FAILURE);
+        } // end switch across command-line args
+    } // end while we have more command-line args to process
+
+
     int server_fd, client_fd;
     struct sockaddr_in server_address, client_address;
     socklen_t client_address_size;
@@ -95,7 +127,7 @@ int main(int argc, char *argv[]) {
     memset(&server_address, 0, sizeof(server_address));
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server_address.sin_port = htons(HUM_PORT);
+    server_address.sin_port = htons(g_port);
 
     // Bind the socket to a port
     if (bind(server_fd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
@@ -109,7 +141,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Hum is listening on port %d...\n", HUM_PORT);
+    printf("Hum is listening on port %d...\n", g_port);
 
     while (1) {
         // Accept an incoming connection

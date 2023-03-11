@@ -1055,7 +1055,51 @@ int main(int argc, char **argv)
     else
     {
         // Ok, we're not using an external webserver; we're using our internal hum server.
-        // For now, assume that it's already up and running.
+
+        // Kill any lingering hum processes.
+        int returnval = system("killall hum");
+        if (returnval != 0)
+        {
+            // Was there a problem with permissions?
+            if (errno == EPERM)
+            {
+                syslog(LOG_ERR, "Killall failed to get rid of previous hum process(es) because of a permissions issue. Exiting.");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        // Start double-forking code to get hum to be its own independent process.
+        printf("forking process pid: %d\n", getpid());
+        pid_t p1 = fork();
+
+        // NOTE: if pid == 0 it's the child process
+        if (p1 != 0)
+        {
+            printf("p1 process id is %d\n", getpid());
+            int status;
+            wait(&status);
+            system("ps");
+        }
+        else
+        {
+            pid_t p2 = fork();
+            int pid = getpid();
+
+            if (p2 != 0)
+            {
+                printf("p2 process id is %d\n", pid);
+                exit(0);
+            }
+            else
+            {
+                printf("p3 process id is %d\n", pid);
+            }
+            printf("I'm the grandchild with pid %d.\n", getpid());
+
+            // Start the hum server.
+            execlp("hum", "hum", "-p", "8888", NULL);
+        }
+        // end double-forking stuff
 
         // Open socket that will talk to our hum server.
         int hum_fd;

@@ -53,6 +53,7 @@
  */
 #define RB_URL_LENGTH 2048
 #define RB_CURL_PB_PREFIX "curl -X POST --silent --data-binary @- -H 'Content-Type: application/octet-stream' -H 'accept: application/octet-stream' http://%s/bmh/%s < /tmp/scenario_%d%s.pb"
+#define DEV_SERVER_STRING "127.0.0.1:8888"
 #define STAGE_SERVER_STRING "fee.stage:4566"
 #define PROD_SERVER_STRING "foo.production:4567"
 

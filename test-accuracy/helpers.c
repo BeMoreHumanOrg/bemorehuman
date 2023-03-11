@@ -53,7 +53,7 @@ unsigned long call_bemorehuman_server(int scenario, char *raw_response)
     FILE *fp;
     // default is dev
     char file_suffix[64] = "";
-    char server_loc[32] = "127.0.0.1";
+    char server_loc[32] = DEV_SERVER_STRING;
 
     // 3 options for suffix for fname of testfile: "", "_prod",  or "_prod_pid"
     // 3 options for server machine: localhost, stage, prod

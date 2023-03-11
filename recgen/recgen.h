@@ -37,6 +37,8 @@
 #include "bmh-config.h"
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 //
 // Constants
@@ -80,8 +82,10 @@
 #define EVENTS_TO_PERSIST_MAX 100   // how many incoming events to store in RAM before persisting to disk?
 
 #define HUM_BUFFER_SIZE 4096
-#define HUM_PORT 80
+#define HUM_DEFAULT_PORT 8888
 
+#define LOG_HUM_STRING "hum"
+#define HUM_LOG_MASK LOG_INFO
 
 // This expects a valence_xy_t for both args.
 #define ASSIGN(a,b) do { \
