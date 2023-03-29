@@ -345,7 +345,7 @@ int main(int argc, char *argv[])
                                      "Content-Length: ";
 
             // Coalescing...
-            char output[1024];
+            char output[1536];
             sprintf(output, "%s%d\r\n\r\n%s", response_header, res_content_length, response);
             // Get the number of digits in res_content_length.
             int numdigits = 0;

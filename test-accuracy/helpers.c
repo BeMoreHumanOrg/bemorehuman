@@ -44,10 +44,10 @@ long long current_time_micros(void)
 
 // This routine call the bemorehuman server and returns the response
 //
-// inputs: int scenario,
+// inputs: int scenario, char *pb_fname;
 // outputs: char *raw_response;
 // return: unsigned long number of chars read
-unsigned long call_bemorehuman_server(int scenario, char *raw_response)
+unsigned long call_bemorehuman_server(int scenario, char *pb_fname, char *raw_response)
 {
     char URL[RB_URL_LENGTH];
     FILE *fp;
@@ -70,39 +70,44 @@ unsigned long call_bemorehuman_server(int scenario, char *raw_response)
         strcpy(server_loc, PROD_SERVER_STRING);
     }
 
+    if (NULL == pb_fname)
+        pb_fname = "";
+
     switch (scenario)
     {
-        case 1:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "first_rating", 1, file_suffix);
+        case 1:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "first_rating", pb_fname, file_suffix);
             break;
-        case 2:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "recs", 2, file_suffix);
+        case 2:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "recs", pb_fname, file_suffix);
             break;
-        case 3:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "event", 3, file_suffix);
+        case 3:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "event", pb_fname, file_suffix);
             break;
-        case 5:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "search", 5, file_suffix);
+        case 5:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "search", pb_fname, file_suffix);
             break;
-        case 6:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "info", 6, file_suffix);
+        case 6:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "info", pb_fname, file_suffix);
             break;
-        case 7:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "scan", 7, file_suffix);
+        case 7:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "scan", pb_fname, file_suffix);
             break;
-        case 8:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "purchase", 8, file_suffix);
+        case 8:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "purchase", pb_fname, file_suffix);
             break;
-        case 9:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "will_i_like_this", 9, file_suffix);
+        case 9:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "will_i_like_this", pb_fname, file_suffix);
             break;
-        case 10:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "imageurl", 10, file_suffix);
+        case 10:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "imageurl", pb_fname, file_suffix);
             break;
-        case 11:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "internal-singlerec", 11, file_suffix);
+        case 11:  sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "internal-singlerec", pb_fname, file_suffix);
             break;
-        case DYNAMIC_SCAN: sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "internal-singlerec", DYNAMIC_SCAN, file_suffix);
+        case DYNAMIC_SCAN: sprintf(URL, RB_CURL_PB_PREFIX, server_loc, "internal-singlerec", pb_fname, file_suffix);
             break;
         default: printf("*** Broken scenario value in call_bemorehuman_server! Bad.\n");
             break;
     }
 
+    printf("URL is ---%s---\n", URL);
+
     // printf("URL for scenario %d is ---%s---\n", scenario, URL);
     fp = popen(URL, "r");
     assert(NULL != fp);
 
-    /* build up the response, line by line, and let the caller deal with the contents */
+    // Build up the response, line by line, and let the caller deal with the contents.
     char line[RB_LINE];
     unsigned long num_chars_read = 0;
     while (NULL != fgets(line, RB_LINE, fp))
