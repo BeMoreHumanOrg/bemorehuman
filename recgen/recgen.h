@@ -31,7 +31,9 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#ifdef USE_FCGI
 #include <fcgiapp.h>
+#endif
 #include <pthread.h>
 #include "recgen.pb-c.h"
 #include "bmh-config.h"

@@ -37,7 +37,6 @@ static uint32_t *g_big_rat_index;
 static uint32_t g_event_counter = 0;
 static event_t g_events_to_persist[EVENTS_TO_PERSIST_MAX];
 static bool wait_for_valence_reload = false;
-static bool g_external_web_server = false;
 
 uint8_t g_output_scale = 5;
 
@@ -52,15 +51,15 @@ static void internal_singlerec(void *request)
     // 3. Construct & send protobuf output.
 
     // What type are we really dealing with on input?
-    FCGX_Request *f_req;
-    hum_request *h_req;
-
     // external webserver means the input type is really *FCGX_Request
     // internal webserver means the input type is really *hum_request
-    if (g_external_web_server)
-        f_req = (FCGX_Request *) request;
-    else
-        h_req = (hum_request *) request;
+#ifdef USE_FCGI
+    FCGX_Request *f_req;
+    f_req = (FCGX_Request *) request;
+#else
+    hum_request *h_req;
+    h_req = (hum_request *) request;
+#endif
 
     size_t post_len;
     uint8_t post_data[FCGX_MAX_INPUT_STREAM_SIZE];
@@ -68,18 +67,16 @@ static void internal_singlerec(void *request)
     InternalSingleRec *message_in;
 
     // Get the POSTed protobuf.
-    if (g_external_web_server)
-        post_len = (size_t) FCGX_GetStr((char *) post_data,
+#ifdef USE_FCGI
+    post_len = (size_t) FCGX_GetStr((char *) post_data,
                                         sizeof(post_data),
                                         f_req->in);
-    else
-    {
-        post_len = h_req->in->content_length;
-        memcpy((char *) post_data,
-               (char *) h_req->in->content,
-               post_len);
-    }
-
+#else
+    post_len = h_req->in->content_length;
+    memcpy((char *) post_data,
+           (char *) h_req->in->content,
+           post_len);
+#endif
     // Now we are ready to decode the message.
     message_in = internal_single_rec__unpack(NULL, post_len, post_data);
 
@@ -223,14 +220,14 @@ static void internal_singlerec(void *request)
     int bytes_to_fcgi;
 
     bytes_to_fcgi = (int) len;
-    if (g_external_web_server)
-        bytes_to_fcgi = FCGX_PutStr((const char *) buf, (int) len, f_req->out);
-    else
-    {
-        h_req->out->content_length = len;
-        h_req->out->type_status = HUM_RESPONSE_OK;
-        strncpy((char *) h_req->out->content, (const char *) buf, (int) len);
-    }
+
+#ifdef USE_FCGI
+    bytes_to_fcgi = FCGX_PutStr((const char *) buf, (int) len, f_req->out);
+#else
+    h_req->out->content_length = len;
+    h_req->out->type_status = HUM_RESPONSE_OK;
+    strncpy((char *) h_req->out->content, (const char *) buf, (int) len);
+#endif
 
     if (bytes_to_fcgi != (int) len)
         syslog(LOG_ERR, "ERROR: bytes_to_fcgi is %d while message_length is %lu", bytes_to_fcgi, len);
@@ -257,15 +254,16 @@ static void recs(void *request)
     // 3. Construct & send protobuf output.
 
     // What type are we really dealing with on input?
-    FCGX_Request *f_req;
-    hum_request *h_req;
-
     // external webserver means the input type is really *FCGX_Request
     // internal webserver means the input type is really *hum_request
-    if (g_external_web_server)
-        f_req = (FCGX_Request *) request;
-    else
-        h_req = (hum_request *) request;
+
+#ifdef USE_FCGI
+    FCGX_Request *f_req;
+    f_req = (FCGX_Request *) request;
+#else
+    hum_request *h_req;
+    h_req = (hum_request *) request;
+#endif
 
     RecsResponse pb_response = RECS_RESPONSE__INIT;              // declare the response
     void *buffer = NULL;                                         // this is the output buffer
@@ -280,17 +278,16 @@ static void recs(void *request)
     // Get the POSTed protobuf.
     size_t post_len;
 
-    if (g_external_web_server)
-        post_len = (size_t) FCGX_GetStr((char *) post_data,
+#ifdef USE_FCGI
+    post_len = (size_t) FCGX_GetStr((char *) post_data,
                                         sizeof(post_data),
                                         f_req->in);
-    else
-    {
-        post_len = h_req->in->content_length;
-        memcpy((char *) post_data,
-                (char *) h_req->in->content,
-                post_len);
-    }
+#else
+    post_len = h_req->in->content_length;
+    memcpy((char *) post_data,
+           (char *) h_req->in->content,
+           post_len);
+#endif
 
     // Now we are ready to decode the message.
     uint32_t personid;
@@ -418,14 +415,14 @@ static void recs(void *request)
     finish_up:
 
     bytes_to_fcgi = (int) len;
-    if (g_external_web_server)
-        bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, f_req->out);
-    else
-    {
-        h_req->out->content_length = len;
-        h_req->out->type_status = HUM_RESPONSE_OK;
-        strncpy((char *) h_req->out->content, (const char *) buffer, (int) len);
-    }
+
+#ifdef USE_FCGI
+    bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, f_req->out);
+#else
+    h_req->out->content_length = len;
+    h_req->out->type_status = HUM_RESPONSE_OK;
+    strncpy((char *) h_req->out->content, (const char *) buffer, (int) len);
+#endif
 
     if (bytes_to_fcgi != (int) len)
         syslog(LOG_ERR,
@@ -453,17 +450,16 @@ static void event(void *request)
     // 2 steps:
     // 1. Persist input event to in-memory structure and possibly filesystem.
     // 2. Construct & send protobuf output.
-
-    // What type are we really dealing with on input?
-    FCGX_Request *f_req;
-    hum_request *h_req;
-
     // external webserver means the input type is really *FCGX_Request
     // internal webserver means the input type is really *hum_request
-    if (g_external_web_server)
-        f_req = (FCGX_Request *) request;
-    else
-        h_req = (hum_request *) request;
+
+#ifdef USE_FCGI
+    FCGX_Request *f_req;
+    f_req = (FCGX_Request *) request;
+#else
+    hum_request *h_req;
+    h_req = (hum_request *) request;
+#endif
 
     EventResponse pb_response = EVENT_RESPONSE__INIT;              // declare the response
     void *buffer = NULL;                                         // this is the output buffer
@@ -477,17 +473,16 @@ static void event(void *request)
     // Get the POSTed protobuf.
     size_t post_len;
 
-    if (g_external_web_server)
-        post_len = (size_t) FCGX_GetStr((char *) post_data,
+#ifdef USE_FCGI
+    post_len = (size_t) FCGX_GetStr((char *) post_data,
                                         sizeof(post_data),
                                         f_req->in);
-    else
-    {
-        post_len = h_req->in->content_length;
-        memcpy((char *) post_data,
-                (char *) h_req->in->content,
-                post_len);
-    }
+#else
+    post_len = h_req->in->content_length;
+    memcpy((char *) post_data,
+           (char *) h_req->in->content,
+           post_len);
+#endif
 
     // Now we are ready to decode the message.
     event_t event;
@@ -589,14 +584,14 @@ static void event(void *request)
     finish_up:
 
     bytes_to_fcgi = (int) len;
-    if (g_external_web_server)
-        bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, f_req->out);
-    else
-    {
-        h_req->out->content_length = len;
-        h_req->out->type_status = HUM_RESPONSE_OK;
-        strncpy((char *) h_req->out->content, (const char *) buffer, (int) len);
-    }
+
+#ifdef USE_FCGI
+    bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, f_req->out);
+#else
+    h_req->out->content_length = len;
+    h_req->out->type_status = HUM_RESPONSE_OK;
+    strncpy((char *) h_req->out->content, (const char *) buffer, (int) len);
+#endif
 
     if (bytes_to_fcgi != (int) len)
         syslog(LOG_ERR,
@@ -610,6 +605,7 @@ static void event(void *request)
 } // end event()
 
 
+#ifdef USE_FCGI
 // Execute this callback per thread, with an infinite loop inside that will receive requests
 // NOTE: clang understands the GCC pragma, but not vice-versa! So do it this way.
 #pragma GCC diagnostic push
@@ -676,7 +672,7 @@ static void *start_fcgi_worker(void *arg)
     } // end while (1)
 } // End start_fcgi_worker callback
 #pragma GCC diagnostic pop
-
+#endif
 
 // Run this single worker with an infinite loop inside that will receive requests.
 // NOTE: clang understands the GCC pragma, but not vice-versa! So do it this way.
@@ -945,9 +941,14 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+#ifdef USE_FCGI
+    printf("*** Using FastCGI to talk to external web server ***\n");
+    syslog(LOG_INFO, "*** Setting recgen to use FastCGI to talk to external webserver");
+#endif
+
     // Use getopt to help manage the options on the command line.
     int opt;
-    while ((opt = getopt(argc, argv, "cdb:x")) != -1)
+    while ((opt = getopt(argc, argv, "cdb:")) != -1)
     {
         switch (opt)
         {
@@ -969,11 +970,6 @@ int main(int argc, char **argv)
                     exit(EXIT_FAILURE);
                 }
                 g_output_scale = strtol(optarg, NULL, 10);
-                break;
-            case 'x':   // for "eXternal web server"
-                printf("*** Using external web server ***\n");
-                g_external_web_server = true;
-                syslog(LOG_INFO, "*** Setting recgen to use external webserver");
                 break;
             default:
                 printf("Don't understand. Check args. Need one of c, d, or b. \n");
@@ -1013,129 +1009,127 @@ int main(int argc, char **argv)
     }
 
     // Here is where we diverge if we're using hum or FastCGI.
-    if (g_external_web_server)
+#ifdef USE_FCGI
+    int fcgi_fd = FCGX_OpenSocket(BE.recgen_socket_location, 128);
+    if (0 > fcgi_fd)
     {
-        int fcgi_fd = FCGX_OpenSocket(BE.recgen_socket_location, 128);
-        if (0 > fcgi_fd)
+        syslog(LOG_ERR, "Can't open socket for communication with web server. Exiting.");
+        exit(EXIT_FAILURE);
+    }
+
+    // Allow web server to write to the socket we just opened.
+    int returnval;
+    char system_string[len + 32];
+    strlcpy(system_string, "exec chmod o+w ", sizeof(system_string));
+    strlcat(system_string, BE.recgen_socket_location, sizeof(system_string));
+    returnval = system(system_string);
+    if (returnval != 0)
+    {
+        syslog(LOG_ERR, "Can't set permissions for unix socket. Exiting.");
+        exit(EXIT_FAILURE);
+    }
+    syslog(LOG_INFO, "successfully set socket %s to allow web server to write to it.", BE.recgen_socket_location);
+
+    const unsigned int n_threads = 2;
+
+    pthread_t threads[n_threads];
+
+    FCGI_info_t info;
+    info.fcgi_fd = fcgi_fd;
+
+    for (unsigned int i = 0; i < n_threads; i++)
+        pthread_create(&threads[i], NULL, start_fcgi_worker, (void *) &info);
+
+    // Wait indefinitely.
+    for (unsigned int i = 0; i < n_threads; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+    // end fastcgi connectivity
+#else
+    // Ok, we're not using an external webserver; we're using our internal hum server.
+
+    // Kill any lingering hum processes.
+    int returnval = system("killall hum");
+    if (returnval != 0)
+    {
+        // Was there a problem with permissions?
+        if (errno == EPERM)
         {
-            syslog(LOG_ERR, "Can't open socket for communication with web server. Exiting.");
+            syslog(LOG_ERR, "Killall failed to get rid of previous hum process(es) because of a permissions issue. Exiting.");
             exit(EXIT_FAILURE);
         }
+    }
 
-        // Allow web server to write to the socket we just opened.
-        int returnval;
-        char system_string[len + 32];
-        strlcpy(system_string, "exec chmod o+w ", sizeof(system_string));
-        strlcat(system_string, BE.recgen_socket_location, sizeof(system_string));
-        returnval = system(system_string);
-        if (returnval != 0)
-        {
-            syslog(LOG_ERR, "Can't set permissions for unix socket. Exiting.");
-            exit(EXIT_FAILURE);
-        }
-        syslog(LOG_INFO, "successfully set socket %s to allow web server to write to it.", BE.recgen_socket_location);
+    // Start double-forking code to get hum to be its own independent process.
+    printf("forking process pid: %d\n", getpid());
+    pid_t p1 = fork();
 
-        const unsigned int n_threads = 2;
-
-        pthread_t threads[n_threads];
-
-        FCGI_info_t info;
-        info.fcgi_fd = fcgi_fd;
-
-        for (unsigned int i = 0; i < n_threads; i++)
-            pthread_create(&threads[i], NULL, start_fcgi_worker, (void *) &info);
-
-        // Wait indefinitely.
-        for (unsigned int i = 0; i < n_threads; i++)
-        {
-            pthread_join(threads[i], NULL);
-        }
-        // end fastcgi connectivity
-    } // end if g_external_webserver
+    // NOTE: if pid == 0 it's the child process
+    if (p1 != 0)
+    {
+        printf("p1 process id is %d\n", getpid());
+        int status;
+        wait(&status);
+        system("ps");
+    }
     else
     {
-        // Ok, we're not using an external webserver; we're using our internal hum server.
+        pid_t p2 = fork();
+        int pid = getpid();
 
-        // Kill any lingering hum processes.
-        int returnval = system("killall hum");
-        if (returnval != 0)
+        if (p2 != 0)
         {
-            // Was there a problem with permissions?
-            if (errno == EPERM)
-            {
-                syslog(LOG_ERR, "Killall failed to get rid of previous hum process(es) because of a permissions issue. Exiting.");
-                exit(EXIT_FAILURE);
-            }
-        }
-
-        // Start double-forking code to get hum to be its own independent process.
-        printf("forking process pid: %d\n", getpid());
-        pid_t p1 = fork();
-
-        // NOTE: if pid == 0 it's the child process
-        if (p1 != 0)
-        {
-            printf("p1 process id is %d\n", getpid());
-            int status;
-            wait(&status);
-            system("ps");
+            printf("p2 process id is %d\n", pid);
+            exit(0);
         }
         else
         {
-            pid_t p2 = fork();
-            int pid = getpid();
-
-            if (p2 != 0)
-            {
-                printf("p2 process id is %d\n", pid);
-                exit(0);
-            }
-            else
-            {
-                printf("p3 process id is %d\n", pid);
-            }
-            printf("I'm the grandchild with pid %d.\n", getpid());
-
-            // Start the hum server.
-            execlp("hum", "hum", "-p", "8888", NULL);
+            printf("p3 process id is %d\n", pid);
         }
-        // end double-forking stuff
+        printf("I'm the grandchild with pid %d.\n", getpid());
 
-        // Open socket that will talk to our hum server.
-        int hum_fd;
-        struct sockaddr_un process_address;
+        // Start the hum server.
+        execlp("hum", "hum", "-p", "8888", NULL);
+    }
+    // end double-forking stuff
 
-        hum_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-        if (hum_fd < 0)
-        {
-            perror("Error creating socket for process.");
-            exit(EXIT_FAILURE);
-        }
+    // Open socket that will talk to our hum server.
+    int hum_fd;
+    struct sockaddr_un process_address;
 
-        // Check that length of path & file isn't too long.
-        if (strlen(BE.recgen_socket_location) > sizeof(process_address.sun_path) - 1)
-        {
-            perror("Server socket path too long.");
-            exit(EXIT_FAILURE);
-        }
+    hum_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (hum_fd < 0)
+    {
+        perror("Error creating socket for process.");
+        exit(EXIT_FAILURE);
+    }
 
-        process_address.sun_family = AF_UNIX;
-        strcpy(process_address.sun_path, BE.recgen_socket_location);
+    // Check that length of path & file isn't too long.
+    if (strlen(BE.recgen_socket_location) > sizeof(process_address.sun_path) - 1)
+    {
+        perror("Server socket path too long.");
+        exit(EXIT_FAILURE);
+    }
 
-        // Now bind the listening socket.
-        unlink(process_address.sun_path);
+    process_address.sun_family = AF_UNIX;
+    strcpy(process_address.sun_path, BE.recgen_socket_location);
 
-        if(bind(hum_fd, (struct sockaddr *) &process_address, sizeof(struct sockaddr_un)) < 0
-           || listen(hum_fd, 5) < 0)
-        {
-            perror("bind/listen");
-            exit(EXIT_FAILURE);
-        }
+    unlink(process_address.sun_path);
 
-        syslog(LOG_INFO, "successfully set socket %s to allow web server to write to it.", BE.recgen_socket_location);
+    // Now bind the listening socket.
+    if(bind(hum_fd, (struct sockaddr *) &process_address, sizeof(struct sockaddr_un)) < 0
+       || listen(hum_fd, 5) < 0)
+    {
+        perror("bind/listen");
+        exit(EXIT_FAILURE);
+    }
 
-        start_hum_worker(hum_fd);
-    } // end else we're talking to hum server
+    syslog(LOG_INFO, "successfully set socket %s to allow web server to write to it.", BE.recgen_socket_location);
+
+    start_hum_worker(hum_fd);
+    // end else we're talking to hum server
+#endif
     return (0);
 } // end main()
 

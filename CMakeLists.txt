@@ -23,11 +23,10 @@
 #
 # This file is part of bemorehuman. See https://bemorehuman.org
 
-cmake_minimum_required(VERSION 3.2.2)
+cmake_minimum_required(VERSION 3.10)
 project(bemorehuman)
 
-set(USE_LANGUAGES
-    c99)
+set(CMAKE_C_STANDARD 99)
 
 add_subdirectory(lib)
 add_subdirectory(ratgen)

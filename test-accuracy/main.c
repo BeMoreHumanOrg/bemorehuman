@@ -71,7 +71,8 @@ static void make_tmpfile(char *buf, size_t len, char **pb_fname)
     }
 
     // Send back the proto_fname
-    *pb_fname = proto_fname;
+    *pb_fname = malloc(strlen(proto_fname) + 1);
+    strcpy(*pb_fname, proto_fname);
 } // end make_tmpfile()
 
 
@@ -334,6 +335,7 @@ void TestAccuracy(void)
         total_time += (finish - start);
         printf("Time to get recs for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
         unlink(pb_fname);
+        free(pb_fname);
         if (0 == len)
         {
             printf("ERROR: length of response from recs call is 0. Check server logs.\n");
@@ -420,6 +422,7 @@ void TestAccuracy(void)
                 finish = current_time_micros();
                 printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
                 unlink(pb_fname);
+                free(pb_fname);
                 if (0 == len)
                 {
                     printf("ERROR: length of response from event call is 0. Check server logs.\n");
@@ -512,8 +515,8 @@ void TestAccuracy(void)
             // protobuf cleanup
             internal_single_rec_response__free_unpacked(message_in2, NULL);
 
-            // unlink fname;
             unlink(pb_fname);
+            free(pb_fname);
 
         } // end for loop over num_held_back
 

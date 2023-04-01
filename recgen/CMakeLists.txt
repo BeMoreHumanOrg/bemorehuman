@@ -23,9 +23,7 @@
 #
 # This file is part of bemorehuman. See https://bemorehuman.org
 
-cmake_minimum_required(VERSION 3.6)
-
-set(CMAKE_C_STANDARD 99)
+cmake_minimum_required(VERSION 3.10)
 
 project(recgen)
 
@@ -57,6 +55,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
     link_directories(/usr/pkg/lib)
 endif()
 
+# Add an option to control whether to build with FastCGI support.
+option(USE_FCGI "Build with FastCGI support" OFF)
+
 add_executable(recgen ${SOURCE_FILES})
 add_executable(hum hum.c)
 
@@ -79,7 +80,23 @@ set_target_properties(hum PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVE
 # uncomment line below to link in the allocation sanitizer for memory debugging
 #target_link_options(${PROJECT_NAME} PUBLIC "-fsanitize=address")
 
-target_link_libraries(${PROJECT_NAME} m fcgi pthread protobuf-c bmh)
+target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh)
+
+# Check if FastCGI support is enabled.
+if(USE_FCGI)
+    # Find the FastCGI library and include files
+    find_package(FCGI REQUIRED)
+
+    # Link the FastCGI library and include the header files
+    # orig target_link_libraries(${PROJECT_NAME} m fcgi pthread protobuf-c bmh)
+    target_link_libraries(${PROJECT_NAME} ${FCGI_LIBRARIES})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${FCGI_INCLUDE_DIRS})
+
+    # Add a preprocessor definition to enable FastCGI-specific code
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_FCGI)
+endif()
+
+
 target_link_libraries(hum bmh)
 
 install(TARGETS ${PROJECT_NAME} hum
