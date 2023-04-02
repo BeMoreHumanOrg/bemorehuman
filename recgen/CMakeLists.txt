@@ -77,9 +77,11 @@ set_source_files_properties(hum.c PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} 
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
 set_target_properties(hum PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
 
-# set rpath
-set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-set_target_properties(hum PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
+   # set rpath
+   set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+   set_target_properties(hum PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+endif()
 
 # uncomment line below to link in the allocation sanitizer for memory debugging
 #target_link_options(${PROJECT_NAME} PUBLIC "-fsanitize=address")

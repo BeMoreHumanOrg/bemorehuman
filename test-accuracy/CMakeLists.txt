@@ -23,9 +23,7 @@
 #
 # This file is part of bemorehuman. See https://bemorehuman.org
 
-cmake_minimum_required(VERSION 3.7)
-
-set(CMAKE_C_STANDARD 99)
+cmake_minimum_required(VERSION 3.10)
 
 project(test-accuracy)
 
@@ -54,7 +52,7 @@ endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
     include_directories(/usr/pkg/include)
-    link_directories(/usr/pkg/lib)
+    link_directories(/usr/pkg/lib /usr/local/lib)
 endif()
 
 add_executable(test-accuracy ${SOURCE_FILES})
@@ -74,6 +72,11 @@ set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_CO
 
 # set max log level
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
+
+if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
+   # set rpath
+   set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+endif()
 
 target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh crypto)
 
