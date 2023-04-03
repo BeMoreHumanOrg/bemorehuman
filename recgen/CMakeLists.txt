@@ -90,13 +90,8 @@ target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh)
 
 # Check if FastCGI support is enabled.
 if(USE_FCGI)
-    # Find the FastCGI library and include files
-    find_package(FCGI REQUIRED)
-
     # Link the FastCGI library and include the header files
-    # orig target_link_libraries(${PROJECT_NAME} m fcgi pthread protobuf-c bmh)
-    target_link_libraries(${PROJECT_NAME} ${FCGI_LIBRARIES})
-    target_include_directories(${PROJECT_NAME} PRIVATE ${FCGI_INCLUDE_DIRS})
+    target_link_libraries(${PROJECT_NAME} fcgi)
 
     # Add a preprocessor definition to enable FastCGI-specific code
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_FCGI)

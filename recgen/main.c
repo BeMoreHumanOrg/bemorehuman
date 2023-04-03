@@ -672,7 +672,8 @@ static void *start_fcgi_worker(void *arg)
     } // end while (1)
 } // End start_fcgi_worker callback
 #pragma GCC diagnostic pop
-#endif
+
+#else
 
 // Run this single worker with an infinite loop inside that will receive requests.
 // NOTE: clang understands the GCC pragma, but not vice-versa! So do it this way.
@@ -820,7 +821,7 @@ static void *start_hum_worker(int hum_fd)
     } // end while (1)
 } // End start_hum_worker()
 #pragma GCC diagnostic pop
-
+#endif
 
 // Get the num_confident_valences.
 static void populate_ncv()
