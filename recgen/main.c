@@ -1090,7 +1090,9 @@ int main(int argc, char **argv)
         printf("I'm the grandchild with pid %d.\n", getpid());
 
         // Start the hum server.
-        execlp("hum", "hum", "-p", "8888", NULL);
+        char portstr[6];
+        itoa(HUM_DEFAULT_PORT, portstr);
+        execlp("hum", "hum", "-p", portstr, (char *) NULL);
     }
     // end double-forking stuff
 

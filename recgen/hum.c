@@ -118,7 +118,8 @@ int main(int argc, char *argv[])
 
     // Create a socket
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd < 0) {
+    if (server_fd < 0)
+    {
         perror("Error creating socket");
         exit(EXIT_FAILURE);
     }
@@ -130,24 +131,28 @@ int main(int argc, char *argv[])
     server_address.sin_port = htons(g_port);
 
     // Bind the socket to a port
-    if (bind(server_fd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
+    if (bind(server_fd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
+    {
         perror("Error binding socket to port");
         exit(EXIT_FAILURE);
     }
 
     // Listen for incoming connections
-    if (listen(server_fd, 5) < 0) {
+    if (listen(server_fd, 5) < 0)
+    {
         perror("Error listening for incoming connections");
         exit(EXIT_FAILURE);
     }
 
     printf("Hum is listening on port %d...\n", g_port);
 
-    while (1) {
+    while (1)
+    {
         // Accept an incoming connection
         client_address_size = sizeof(client_address);
         client_fd = accept(server_fd, (struct sockaddr *)&client_address, &client_address_size);
-        if (client_fd < 0) {
+        if (client_fd < 0)
+        {
             perror("Error accepting incoming connection");
             continue;
         }
@@ -158,7 +163,8 @@ int main(int argc, char *argv[])
 
         // Read data from the socket into the buffer
         bytes_read = read(client_fd, buffer, HUM_BUFFER_SIZE - 1);
-        if (bytes_read < 0) {
+        if (bytes_read < 0)
+        {
             perror("read client request from socket");
             exit(1);
         }
