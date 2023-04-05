@@ -52,7 +52,8 @@
  * Constants. These are the bits in the code that are likely to change with a change in what's being recommended.
  */
 #define RB_URL_LENGTH 2048
-#define RB_CURL_PB_PREFIX "curl -X POST --silent --data-binary @- -H 'Content-Type: application/octet-stream' -H 'accept: application/octet-stream' http://%s/bmh/%s < /tmp/scenario_%d%s.pb"
+#define RB_CURL_PB_PREFIX "curl -X POST --silent --data-binary @- -H 'Content-Type: application/octet-stream' -H 'accept: application/octet-stream' http://%s/bmh/%s < %s%s"
+#define DEV_SERVER_STRING "127.0.0.1:8888"
 #define STAGE_SERVER_STRING "fee.stage:4566"
 #define PROD_SERVER_STRING "foo.production:4567"
 
@@ -68,6 +69,8 @@
 
 #define RATINGS_BR "big_rat.bin"
 #define RATINGS_BR_INDEX "big_rat_index.bin"
+
+#define FILE_TEMPLATE "/tmp/test-accuracy-XXXXXX"
 
 
 /*
@@ -92,7 +95,7 @@ extern void TestAccuracy(void);
 extern unsigned int random_uint(unsigned int);
 
 // in helpers.c
-extern unsigned long call_bemorehuman_server(int, char *);
+extern unsigned long call_bemorehuman_server(int, char *, char *);
 
 // globals
 extern int g_server_location;

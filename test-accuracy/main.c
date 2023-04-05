@@ -33,13 +33,51 @@ static bool g_group_test = false;
 static size_t g_num_testing_people = 0;
 static bool g_test_event_call = false;
 
-/*
- 
-This guy is an executable that does integration testing on bemorehuman.
+//
+//
+// This binary is an executable that does integration testing on bemorehuman.
+//
+//
 
-*/
+// Create the temp file that holds the passed-in protobuffer.
+static void make_tmpfile(char *buf, size_t len, char **pb_fname)
+{
+    // ok, write the protobuf to a file
+    char proto_fname[128];
 
-static void make_pb_scen_2_file(uint32_t userid)
+    // orig: sprintf(proto_fname, "/tmp/scenario_2.pb");
+    strcpy(proto_fname, FILE_TEMPLATE);
+    int fd = mkstemp(proto_fname);
+
+    if (fd == -1)
+    {
+        perror("Error creating temporary file");
+        exit(EXIT_FAILURE);
+    }
+
+    // Write content to the temporary file
+    FILE *file = fdopen(fd, "w");
+    if (file)
+    {
+        // Make sure to use fwrite and not fprintff with %s
+        fwrite(buf, len, 1, file);
+        fflush(file);
+        fclose(file);
+    }
+    else
+    {
+        perror("Error opening temporary file for writing");
+        exit(EXIT_FAILURE);
+    }
+
+    // Send back the proto_fname
+    *pb_fname = malloc(strlen(proto_fname) + 1);
+    strcpy(*pb_fname, proto_fname);
+} // end make_tmpfile()
+
+
+// Make the scenario 2 (recs) file and send back the pb_fname to the caller.
+static void make_pb_scen_2_file(uint32_t userid, char **pb_fname)
 {
     // Do some protobuf-based calling here (try writing the protobuf to a file)
     Recs message_out = RECS__INIT;
@@ -54,23 +92,15 @@ static void make_pb_scen_2_file(uint32_t userid)
     buf = malloc (len);                      // Allocate required serialized buffer length
     recs__pack(&message_out, buf); // Pack the data
 
-    // ok, write the protobuf to a file
-    char proto_fname[128];
-    sprintf(proto_fname, "/tmp/scenario_2.pb");
-
-    FILE *proto_tmpfile = fopen(proto_fname, "w");
-    assert(NULL != proto_tmpfile);
-
-    // Make sure to use fwrite and not fprintff with %s
-    fwrite(buf, len, 1, proto_tmpfile);
-    fclose(proto_tmpfile);
+    // Create the tempfile.
+    make_tmpfile(buf, len, pb_fname);
 
     // cleanup
     free(buf);
 } // end scen 2 "recs"
 
 
-static void make_pb_scen_3_file(uint32_t userid, uint32_t elementid, uint32_t eventid)
+static void make_pb_scen_3_file(uint32_t userid, uint32_t elementid, uint32_t eventid, char **pb_fname)
 {
     // Do some protobuf-based calling here (try writing the protobuf to a file)
     Event message_out = EVENT__INIT;
@@ -86,20 +116,35 @@ static void make_pb_scen_3_file(uint32_t userid, uint32_t elementid, uint32_t ev
     buf = malloc (len);                      // Allocate required serialized buffer length
     event__pack(&message_out, buf); // Pack the data
 
-    // ok, write the protobuf to a file
-    char proto_fname[128];
-    sprintf(proto_fname, "/tmp/scenario_3.pb");
-
-    FILE *proto_tmpfile = fopen(proto_fname, "w");
-    assert(NULL != proto_tmpfile);
-
-    // Make sure to use fwrite and not fprintf with %s
-    fwrite(buf, len, 1, proto_tmpfile);
-    fclose(proto_tmpfile);
+    // Create the tempfile.
+    make_tmpfile(buf, len, pb_fname);
 
     // cleanup
     free(buf);
 } // end scen 3 "event"
+
+
+static void make_pb_scen_110_file(uint32_t userid, uint32_t elementid, char **pb_fname)
+{
+    // Do some protobuf-based calling here (try writing the protobuf to a file)
+    InternalSingleRec message_out = INTERNAL_SINGLE_REC__INIT;
+    void *buf;                    // Buffer to store serialized data
+    size_t len;                    // Length of serialized data
+
+    message_out.personid = (uint32_t) userid;
+    message_out.elementid = (uint32_t ) elementid;
+
+    // Finish constructing the protobuf message.
+    len = internal_single_rec__get_packed_size(&message_out);
+    buf = malloc(len);
+    internal_single_rec__pack(&message_out, buf);
+
+    // Create the tempfile.
+    make_tmpfile(buf, len, pb_fname);
+
+    // cleanup
+    free(buf);
+} // end scen 110 "dynamic scan"
 
 
 // Provide a random integer in [0, limit)
@@ -151,7 +196,6 @@ void TestAccuracy(void)
     int userid, currat, held_back[4096];
     int ratings[MAX_PREDS_PER_PERSON], num_found = 0, total_held_back = 0;
     double diff_total;
-    char suffix[32];
 
     double squared, sum_squares = 0.0, rmse = 0.0, xobs = 0.0, nrmse;
     int num_sum_squares = 0;
@@ -159,7 +203,6 @@ void TestAccuracy(void)
     srand((unsigned int) time(NULL));
     unsigned int random;
     double random_avg = 0.0;
-
     // Begin loading ratings.
     // Create the big_rat.
     g_big_rat = (rating_t *) calloc(BE.num_ratings, sizeof(rating_t));
@@ -277,19 +320,22 @@ void TestAccuracy(void)
         // Get the ratings for a user from ratings flat file.
         uint8_t raw_response[RB_RAW_RESPONSE_SIZE_MAX] = {0};
         size_t len;
-
+        char *pb_fname = NULL;
+	
         //
         // Scenario: recs
         //
-        make_pb_scen_2_file((uint32_t) userids[userCounter]);
+        make_pb_scen_2_file((uint32_t) userids[userCounter], (char **) &pb_fname);
 
         // need to clear the memory here for the pb_response, then pass in the pointer
         memset(raw_response, 0, RB_RAW_RESPONSE_SIZE_MAX);
         start = current_time_micros();
-        len = call_bemorehuman_server(2, (char *) raw_response);
+        len = call_bemorehuman_server(2, pb_fname, (char *) raw_response);
         finish = current_time_micros();
         total_time += (finish - start);
         printf("Time to get recs for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
+        unlink(pb_fname);
+        free(pb_fname);
         if (0 == len)
         {
             printf("ERROR: length of response from recs call is 0. Check server logs.\n");
@@ -321,8 +367,6 @@ void TestAccuracy(void)
         recs_response__free_unpacked(recs_response, NULL);
 
         // begin pb-specific outputting of data to file
-        char fname[128];
-
         printf ("numrows for this user is %zu\n", numrows);
 
         int send_counter = 0;
@@ -370,13 +414,15 @@ void TestAccuracy(void)
                 size_t made_up_rating = i % (size_t) g_ratings_scale;
                 make_pb_scen_3_file((uint32_t) userids[userCounter],
                                     (uint32_t) i + 1,
-                                    made_up_rating == 0 ? 1 : (unsigned int) made_up_rating);
-
+                                    made_up_rating == 0 ? 1 : (unsigned int) made_up_rating,
+                                    (char **) &pb_fname);
 
                 start = current_time_micros();
-                len = call_bemorehuman_server(3, (char *) raw_response);
+                len = call_bemorehuman_server(3, pb_fname, (char *) raw_response);
                 finish = current_time_micros();
                 printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
+                unlink(pb_fname);
+                free(pb_fname);
                 if (0 == len)
                 {
                     printf("ERROR: length of response from event call is 0. Check server logs.\n");
@@ -403,10 +449,6 @@ void TestAccuracy(void)
 
                 // protobuf cleanup
                 event_response__free_unpacked(message_in2, NULL);
-
-                // unlink fname;
-                unlink(fname);
-
             } // end for loop over num_held_back
         } // end if we want to test the /event call
 
@@ -418,7 +460,6 @@ void TestAccuracy(void)
         // Dynamic scan, similar to dynamic rate. It's scan b/c we're sending one id to the server and saying "what about this element?"
         // It's called Dynamic b/c it changes for each film for which we want to get the pred.
 
-        void *buf;                    // Buffer to store serialized data
         int recval;
         num_found = 0;
         diff_total = 0.0;
@@ -426,42 +467,15 @@ void TestAccuracy(void)
         // We need to call dynamic scan num_held_back times.
         for (i = 0; i < num_held_back; i++)
         {
-            // build the outgoing call to bemorehuman
-            InternalSingleRec message_out = INTERNAL_SINGLE_REC__INIT;
-            message_out.personid = (uint32_t) userids[userCounter];
-
-            // create the dynamic content to send to the server
-            message_out.elementid = (uint32_t ) held_back[i];
-
-            // begin pb-specific outputting of data to file
-            len = internal_single_rec__get_packed_size(&message_out);
-            buf = malloc(len);
-            internal_single_rec__pack(&message_out, buf);
-            // end pb-specific bit
-
-            // clear suffix
-            strcpy(suffix, "");
-
-            // if we're on prod or stage, add a _prod
-            if (TEST_LOC_DEV != g_server_location) strcpy(suffix, "_prod");
-
-            sprintf(fname, "/tmp/scenario_110%s.pb", suffix);
-
-            FILE *tmpfile_scan = fopen(fname, "w");
-            assert(NULL != tmpfile_scan);
-
-            // make sure to use fwrite and not fprintff with %s
-            fwrite(buf, len, 1, tmpfile_scan);
-            fclose(tmpfile_scan);
-
-            // free protobuf stuff
-            free(buf);
-
             // clear out raw_response
             memset(raw_response, 0, sizeof(raw_response));
 
+            make_pb_scen_110_file((uint32_t) userids[userCounter],
+                                (uint32_t) i + 1,
+                                (char **) &pb_fname);
+
             // call the server
-            len = call_bemorehuman_server(DYNAMIC_SCAN, (char *) raw_response);
+            len = call_bemorehuman_server(DYNAMIC_SCAN, pb_fname, (char *) raw_response);
 
             InternalSingleRecResponse *message_in2;
 
@@ -501,8 +515,8 @@ void TestAccuracy(void)
             // protobuf cleanup
             internal_single_rec_response__free_unpacked(message_in2, NULL);
 
-            // unlink fname;
-            unlink(fname);
+            unlink(pb_fname);
+            free(pb_fname);
 
         } // end for loop over num_held_back
 
@@ -524,11 +538,11 @@ void TestAccuracy(void)
         }
     } // end iterating over the users
 
-    printf("\nTotal time is %lld micros (%lld millis) to generate a total of %lu strongest recs, or %lld millis per rec.\n",
+    printf("\nTotal time is %lld micros (%lld millis) to generate a total of %lu strongest recs, or %lld micros per rec.\n",
            total_time,
            total_time / 1000,
            20 * g_num_testing_people,
-           (unsigned long long) bmh_round(((double) total_time / 1000) / (double) (20 * g_num_testing_people)));
+           (unsigned long long) bmh_round(((double) total_time) / (double) (20 * g_num_testing_people)));
 
     printf("Overall timing for needle-in-haystack recs used to determine MAE was not calculated.\n");
     // 8) collate & print results: specifically, overall average distance from 5 for all the users we're looking at

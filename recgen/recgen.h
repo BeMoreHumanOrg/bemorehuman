@@ -31,10 +31,16 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#ifdef USE_FCGI
 #include <fcgiapp.h>
+#endif
 #include <pthread.h>
 #include "recgen.pb-c.h"
 #include "bmh-config.h"
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 //
 // Constants
@@ -76,6 +82,12 @@
 
 #define MAX_STACK 128              // stack size for max 2^(128/2) array elements when sorting
 #define EVENTS_TO_PERSIST_MAX 100   // how many incoming events to store in RAM before persisting to disk?
+
+#define HUM_BUFFER_SIZE 4096
+#define HUM_DEFAULT_PORT 8888
+
+#define LOG_HUM_STRING "hum"
+#define HUM_LOG_MASK LOG_INFO
 
 // This expects a valence_xy_t for both args.
 #define ASSIGN(a,b) do { \
@@ -193,6 +205,29 @@ typedef struct
 {
     int fcgi_fd;
 } FCGI_info_t;
+
+// Hum server structures
+typedef struct
+{
+    uint8_t type_status;     // This is either the request type or return status.
+    uint32_t content_length;
+    uint8_t content[HUM_BUFFER_SIZE];
+} hum_record;
+
+typedef struct
+{
+    hum_record *in;
+    hum_record *out;
+} hum_request;
+
+enum
+{
+    HUM_REQUEST_URI = 1,
+    HUM_POST_DATA = 2,
+    HUM_RESPONSE_OK = 10,
+    HUM_RESPONSE_ERROR = 11,
+};
+
 
 // Bemorehuman-internal globals
 extern size_t g_num_confident_valences;

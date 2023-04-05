@@ -23,10 +23,8 @@
 #
 # This file is part of bemorehuman. See https://bemorehuman.org
 
-cmake_minimum_required(VERSION 3.15)
-project(bmh C)
-
-set(CMAKE_C_STANDARD 99)
+cmake_minimum_required(VERSION 3.10)
+project(bmh)
 
 set(CMAKE_INSTALL_PREFIX "/usr")
 
@@ -47,6 +45,8 @@ set_target_properties(
     PUBLIC_HEADER bmh-config.h
     OUTPUT_NAME "bmh"
 )
+
+target_include_directories(bmh PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 install(TARGETS bmh)
 
