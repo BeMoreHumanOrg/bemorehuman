@@ -185,27 +185,26 @@ a database easily if you like.
 
 #### Build Dependencies
 
-- A webserver with fcgi capability. I like nginx for the simple fact it is commonly used and has a
-smart event model.
-  - see nginx.conf in bemorehuman/config dir for a sample of how to configure nginx for bemorehuman
-- You can get standard fcgi from lots of places; I used: https://github.com/toshic/libfcgi
-  - on Debian or Ubuntu, install libfcgi-dev 
-  - on Void Linux, install fcgi-devel 
-  - on NetBSD, install www/fcgi
-- An implementation of protobuf-c:
-  - on Debian or Ubuntu, "sudo apt install libprotobuf-c-dev protobuf-c-compiler" 
-  - on Void Linux, install protobuf-c-devel 
+- Protobuf-c:
+  - on Debian or Ubuntu, "sudo apt install libprotobuf-c-dev protobuf-c-compiler"
+  - on Void Linux, install protobuf-c-devel
   - on NetBSD, install devel/protobuf-c
   - OR on any OS from github.com/protobuf-c
 
   If you don't have a recgen.proto in the bemorehuman/recgen dir (it should already be there)
   - modify recgen.proto as needed then generate the recgen .c and .h (recgen.pb-c.c/.h) on command line:
-  protoc --c_out=. recgen.proto
+    protoc --c_out=. recgen.proto
 - for test-accuracy:
   - curl
   - openssl dev package
     - on Debian or Ubuntu, it's libssl-dev
     - on Void Linux, it's openssl-devel
+- (OPTIONAL) A webserver with fcgi capability. I like nginx for the simple fact it is commonly used and has a
+smart event model.
+- (IF USING YOUR OWN WEBSERVER) FastCGI library:
+  - on Debian or Ubuntu, install libfcgi-dev 
+  - on Void Linux, install fcgi-devel 
+  - on NetBSD, install www/fcgi
 
 #### Directory structure
 
@@ -215,23 +214,29 @@ smart event model.
   - valgen (valence generator)
   - recgen (runtime recommendation server)
   - test-accuracy (client-side commandline tester)
-  - config (various config files)
+  - config (bemorehuman config file)
 
 #### To build bemorehuman
 
 Follow the regular cmake way of building:
 
-     cd ~/src/bemorehuman  (or whereever the bemorehuman source is on your machine)
+     cd ~/src/bemorehuman    # or whereever the bemorehuman source is on your machine)
      mkdir build; cd build
-     cmake ..
+     
+     # if you are using the built-in hum HTTP server
+     cmake ..      
+     # if you are using your own HTTP server such as nginx  
+     cmake -DUSE_FCGI=ON ..  
+     
      cmake --build .   
-     sudo make install     (root is used to install the include/library/binaries and create config file under /etc)
+     sudo make install       # root is used to install the include/library/binaries and create config file under /etc)
 
 Binaries built:
-These are the binaries that get created automatically in the above cmake process and they all have their own CMakeLists.txt:
+These are the binaries that get created automatically in the above cmake process:
 
 - bmhlib (shared library)
 - ratgen
+- hum (our custom HTTP server)
 - valgen
 - recgen
 - test-accuracy
@@ -249,18 +254,24 @@ These are the binaries that get created automatically in the above cmake process
     sudo mkdir /opt/bemorehuman
     sudo chown <user who'll run bemorehuman> /opt/bemorehuman
 
-### STEP 4: Integrate with a webserver.
+### STEP 4 (Optional): Integrate with your own webserver.
 
-I like nginx, but any webserver with FastCGI will do. To install nginx from Debian or Ubuntu,
-"sudo apt install nginx"
+By default, bemorehuman uses its own HTTP server called hum. Hum caters to recgen's needs. Meaning, it 
+handles POST requests from HTTP clients, but not GET. For this and the fact that there's very little 
+error processing, please don't use hum in production. The instructions in this step are only for the
+situation where you want to use your own webserver. If you're ok with using hum, please skip to Step 5.
+
+If you want to use your own webserver, just make sure it can integrate with FastCGI. I like nginx. 
+To install nginx from Debian or Ubuntu, "sudo apt install nginx"
 
 The default socket used for communication between recgen and the webserver is
 
 /tmp/bemorehuman/recgen.sock
 
-So you'll need to inform your webserver of that. For nginx, you can add this clause
+So you'll need to inform your external webserver of that. For nginx, you can add this clause
 to the server section of /etc/nginx/nginx.conf or /etc/nginx/sites-enabled/default:
 
+    listen 8888
     location ^~ /bmh {
         include /etc/nginx/fastcgi_params;
         fastcgi_pass  unix:/tmp/bemorehuman/recgen.sock;
@@ -279,7 +290,7 @@ dataset and check that your results are in line with what we got here at Be More
 Human HQ.
 
 
-### STEP 5 (optional but recommended): Download and prepare Grouplens/Movielens movie rating dataset.
+### STEP 5 (Optional but recommended): Download and prepare Grouplens/Movielens movie rating dataset.
 
 NOTE: All times below are from an Intel i7 8559u NUC development machine running Debian
 Linux, with 20 GB RAM and an SSD drive.
@@ -324,11 +335,11 @@ is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf file. Def
 - Now the Movielens data is ready to be run through bemorehuman.
 
 
-### STEP 6 (optional but recommended): Run the test-accuracy binary and compare the results against a known working system.
+### STEP 6 (Optional but recommended): Run the test-accuracy binary and compare the results against a known working system.
 
 #### To run bemorehuman
 
-- Make sure nginx (or other webserver with FastCGI) is running
+- (If you want to use your own HTTP server) Make sure nginx or other webserver with FastCGI is running.
 - Now you're ready to run the bemorehuman script. It's a simple wrapper that does the following:
   - create valences
   - start the live recommender
@@ -344,7 +355,7 @@ Expected Results:
 
 Please use the following numbers as a ballpark guide. All numbers below are from a desktop development machine.
 
-- In terms of speed, we see around "25 millis per rec" for the time to generate recommendations,
+- In terms of speed, we see around "974 micros per rec" for the time to generate recommendations,
 but of course this is heavily dependent on your machine load and the random test users chosen at runtime.
 
 - In terms of accuracy, here is some representative output:
