@@ -52,7 +52,6 @@
 #define MAX_RATN_FOR_VALGEN 48
 
 // spear-specific
-#define BDCX(I,J) x[(I)*2 + (J)]
 #define RANK(I,J) rank[(I)*2 + (J)]
 #define BX(I,J) bx[(I)*2 + (J)]
 
@@ -63,6 +62,8 @@
 #define BIG_RAT_OUTFILE "big_rat.bin"
 #define BIG_RAT_INDEX_OUTFILE "big_rat_index.bin"
 
+// the most number of internal buckets we can have
+#define MAX_BUCKETS 32
 
 // Typedefs
 

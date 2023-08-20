@@ -34,7 +34,7 @@ static void linefit(uint8_t, const uint8_t *, const uint8_t *, double *, double 
 
 // The plus one is b/c I want the index # to be same as numpairs (NOTE: I added a value for array index 4 b/c we have a
 //   number of numpairs at that level).
-// Currenl live array index values: 4-48.
+// Current live array index values: 4-48.
 static double g_BeastConf[MAX_RATN_FOR_VALGEN + 1] =
                     {0.0, 0.0, 0.0, 0.0, 1.000, 1.000, 0.886, 0.786, 0.738, 0.700, 0.648, 0.618, 0.587,
                     0.560, 0.538, 0.521, 0.503, 0.485, 0.472, 0.460, 0.447, 0.435, 0.425, 0.415, 0.406,
@@ -194,428 +194,75 @@ static void linefit(uint8_t n, const uint8_t *x, const uint8_t *y, double *a, do
 // This routine finds the spearman correlation coefficient for a (rat1, rat2) pair.
 //
 // IN
-// n is length of array
-// x is an [n,2] array of char implemented as a single-dimension array. Use X macro to find index.
+// array_len is length of array
+// input_array is an [array_len,2] array of char implemented as a single-dimension array.
 //
 // OUT
 // returns the spearman value
 //
-double spearman(int n, const uint8_t *x)
+double spearman(int array_len, const uint8_t *input_array)
 {
     int col, i;
-    uint8_t val;
-    double val1=0.0, val2=0.0, val3=0.0, val4=0.0, val5=0.0, val6=0.0, val7=0.0, val8=0.0, val9=0.0, val10=0.0,
-           val11=0.0, val12=0.0, val13=0.0, val14=0.0, val15=0.0, val16=0.0, val17=0.0, val18=0.0, val19=0.0, val20=0.0,
-           val21=0.0, val22=0.0, val23=0.0, val24=0.0, val25=0.0, val26=0.0, val27=0.0, val28=0.0, val29=0.0, val30=0.0,
-           val31=0.0, val32=0.0;
+    uint8_t rating;
     double rank[MAX_RATN_FOR_VALGEN * 2];
 
-    // Plan: Walk the input to find numx instances of a rating. After walking, we can populate rank.
-
+    // Walk the input to find num[x] instances of a rating. After walking, we can populate rank.
     for (col = 0; col < 2; col++)
     {
-        uint8_t num1, num2, num3, num4, num5, num6, num7, num8, num9, num10,
-            num11, num12, num13, num14, num15, num16, num17, num18, num19, num20,
-            num21, num22, num23, num24, num25, num26, num27, num28, num29, num30,
-            num31, num32;
-        uint8_t start1, start2, start3, start4, start5, start6, start7, start8, start9, start10,
-            start11, start12, start13, start14, start15, start16, start17, start18, start19, start20,
-            start21, start22, start23, start24, start25, start26, start27, start28, start29, start30,
-            start31, start32;
+        uint8_t num[MAX_BUCKETS] = {0}; // Initialize all counts to zero
+        uint8_t start[MAX_BUCKETS] = {0}; // Initialize all counts to zero
+        double avg[MAX_BUCKETS] = {0.0}; // Initialize all counts to zero
 
-        num1 = num2 = num3 = num4 = num5 = num6 = num7 = num8 = num9 = num10 =
-        num11 = num12 = num13 = num14 = num15 = num16 = num17 = num18 = num19 = num20 =
-        num21 = num22 = num23 = num24 = num25 = num26 = num27 = num28 = num29 = num30 =
-        num31 = num32 = 0;
-
-        // walk each column of input data
-        for (i = 0; i < n; i++)
+        // Walk each column of input data
+        for (i = 0; i < array_len; i++)
         {
-            val = BDCX(i, col);
-            if (1 == val) num1++;
-            else if (2 == val) num2++;
-            else if (3 == val) num3++;
-            else if (4 == val) num4++;
-            else if (5 == val) num5++;
-            else if (6 == val) num6++;
-            else if (7 == val) num7++;
-            else if (8 == val) num8++;
-            else if (9 == val) num9++;
-            else if (10 == val) num10++;
-            else if (11 == val) num11++;
-            else if (12 == val) num12++;
-            else if (13 == val) num13++;
-            else if (14 == val) num14++;
-            else if (15 == val) num15++;
-            else if (16 == val) num16++;
-            else if (17 == val) num17++;
-            else if (18 == val) num18++;
-            else if (19 == val) num19++;
-            else if (20 == val) num20++;
-            else if (21 == val) num21++;
-            else if (22 == val) num22++;
-            else if (23 == val) num23++;
-            else if (24 == val) num24++;
-            else if (25 == val) num25++;
-            else if (26 == val) num26++;
-            else if (27 == val) num27++;
-            else if (28 == val) num28++;
-            else if (29 == val) num29++;
-            else if (30 == val) num30++;
-            else if (31 == val) num31++;
-            else num32++;
+            rating = input_array[(i) * 2 + (col)];
+            if (rating >= 1 && rating <= MAX_BUCKETS)
+                num[rating - 1]++;
         }
 
-        // Figure out where each value would sit in a sorted list and compute averages if we need to.
-        // NOTE: The valn is probably a non-integer.
-        start1 = 0;
-        if (0 != num1)
+        // Figure out where each rating would sit in a sorted list and compute averages if we need to.
+        for (i = 0; i < MAX_BUCKETS; i++)
         {
-            val1 = start1 + 1;
-            for (i = 2; i <= num1; i++)
-                val1 = val1 + start1 + i;
-            val1 = val1 / num1;
+            start[i] = (i == 0) ? 0 : start[i - 1] + num[i - 1];
+            if (num[i] != 0)
+            {
+                double sum = start[i] + 1;
+                for (int j = 2; j <= num[i]; j++)
+                    sum += start[i] + j;
+                avg[i] = sum / num[i];
+            }
         }
 
-        start2 = num1;
-        if (0 != num2)
+        // Walk input input_array again, assigning RANK values.
+        for (i = 0; i < array_len; i++)
         {
-            val2 = start2 + 1;
-            for (i = 2; i <= num2; i++)
-                val2 = val2 + start2 + i;
-            val2 = val2 / num2;
-        }
-
-        start3 = start2 + num2;
-        if (0 != num3)
-        {
-            val3 = start3 + 1;
-            for (i = 2; i <= num3; i++)
-                val3 = val3 + start3 + i;
-            val3 = val3 / num3;
-        }
-
-        start4 = start3 + num3;
-        if (0 != num4)
-        {
-            val4 = start4 + 1;
-            for (i = 2; i <= num4; i++)
-                val4 = val4 + start4 + i;
-            val4 = val4 / num4;
-        }
-
-        start5 = start4 + num4;
-        if (0 != num5)
-        {
-            val5 = start5 + 1;
-            for (i = 2; i <= num5; i++)
-                val5 = val5 + start5 + i;
-            val5 = val5 / num5;
-        }
-
-        start6 = start5 + num5;
-        if (0 != num6)
-        {
-            val6 = start6 + 1;
-            for (i = 2; i <= num6; i++)
-                val6 = val6 + start6 + i;
-            val6 = val6 / num6;
-        }
-
-        start7 = start6 + num6;
-        if (0 != num7)
-        {
-            val7 = start7 + 1;
-            for (i = 2; i <= num7; i++)
-                val7 = val7 + start7 + i;
-            val7 = val7 / num7;
-        }
-
-        start8 = start7 + num7;
-        if (0 != num8)
-        {
-            val8 = start8 + 1;
-            for (i = 2; i <= num8; i++)
-                val8 = val8 + start8 + i;
-            val8 = val8 / num8;
-        }
-
-        start9 = start8 + num8;
-        if (0 != num9)
-        {
-            val9 = start9 + 1;
-            for (i = 2; i <= num9; i++)
-                val9 = val9 + start9 + i;
-            val9 = val9 / num9;
-        }
-
-        start10 = start9 + num9;
-        if (0 != num10)
-        {
-            val10 = start10 + 1;
-            for (i = 2; i <= num10; i++)
-                val10 = val10 + start10 + i;
-            val10 = val10 / num10;
-        }
-
-        start11 = start10 + num10;
-        if (0 != num11)
-        {
-            val11 = start11 + 1;
-            for (i = 2; i <= num11; i++)
-                val11 = val11 + start11 + i;
-            val11 = val11 / num11;
-        }
-
-        start12 = start11 + num11;
-        if (0 != num12)
-        {
-            val12 = start12 + 1;
-            for (i = 2; i <= num12; i++)
-                val12 = val12 + start12 + i;
-            val12 = val12 / num12;
-        }
-
-        start13 = start12 + num12;
-        if (0 != num13)
-        {
-            val13 = start13 + 1;
-            for (i = 2; i <= num13; i++)
-                val13 = val13 + start13 + i;
-            val13 = val13 / num13;
-        }
-
-        start14 = start13 + num13;
-        if (0 != num14)
-        {
-            val14 = start14 + 1;
-            for (i = 2; i <= num14; i++)
-                val14 = val14 + start14 + i;
-            val14 = val14 / num14;
-        }
-
-        start15 = start14 + num14;
-        if (0 != num15)
-        {
-            val15 = start15 + 1;
-            for (i = 2; i <= num15; i++)
-                val15 = val15 + start15 + i;
-            val15 = val15 / num15;
-        }
-
-        start16 = start15 + num15;
-        if (0 != num16)
-        {
-            val16 = start16 + 1;
-            for (i = 2; i <= num16; i++)
-                val16 = val16 + start16 + i;
-            val16 = val16 / num16;
-        }
-
-        start17 = start16 + num16;
-        if (0 != num17)
-        {
-            val17 = start17 + 1;
-            for (i = 2; i <= num17; i++)
-                val17 = val17 + start17 + i;
-            val17 = val17 / num17;
-        }
-
-        start18 = start17 + num17;
-        if (0 != num18)
-        {
-            val18 = start18 + 1;
-            for (i = 2; i <= num18; i++)
-                val18 = val18 + start18 + i;
-            val18 = val18 / num18;
-        }
-
-        start19 = start18 + num18;
-        if (0 != num19)
-        {
-            val19 = start19 + 1;
-            for (i = 2; i <= num19; i++)
-                val19 = val19 + start19 + i;
-            val19 = val19 / num19;
-        }
-
-        start20 = start19 + num19;
-        if (0 != num20)
-        {
-            val20= start20 + 1;
-            for (i = 2; i <= num20; i++)
-                val20 = val20 + start20 + i;
-            val20 = val20 / num20;
-        }
-
-        start21 = start20 + num20;
-        if (0 != num21)
-        {
-            val21 = start21 + 1;
-            for (i = 2; i <= num21; i++)
-                val21 = val21 + start21 + i;
-            val21 = val21 / num21;
-        }
-
-        start22 = start21 + num21;
-        if (0 != num22)
-        {
-            val22 = start22 + 1;
-            for (i = 2; i <= num22; i++)
-                val22 = val22 + start22 + i;
-            val22 = val22 / num22;
-        }
-
-        start23 = start22 + num22;
-        if (0 != num23)
-        {
-            val23 = start23 + 1;
-            for (i = 2; i <= num23; i++)
-                val23 = val23 + start23 + i;
-            val23 = val23 / num23;
-        }
-
-        start24 = start23 + num23;
-        if (0 != num24)
-        {
-            val24 = start24 + 1;
-            for (i = 2; i <= num24; i++)
-                val24 = val24 + start24 + i;
-            val24 = val24 / num24;
-        }
-
-        start25 = start24 + num24;
-        if (0 != num25)
-        {
-            val25 = start25 + 1;
-            for (i = 2; i <= num25; i++)
-                val25 = val25 + start25 + i;
-            val25 = val25 / num25;
-        }
-
-        start26 = start25 + num25;
-        if (0 != num26)
-        {
-            val5 = start26 + 1;
-            for (i = 2; i <= num26; i++)
-                val26 = val26 + start26 + i;
-            val26 = val26 / num26;
-        }
-
-        start27 = start26 + num26;
-        if (0 != num27)
-        {
-            val27 = start27 + 1;
-            for (i = 2; i <= num27; i++)
-                val27 = val27 + start27 + i;
-            val27 = val27 / num27;
-        }
-
-        start28 = start27 + num27;
-        if (0 != num28)
-        {
-            val28 = start28 + 1;
-            for (i = 2; i <= num28; i++)
-                val28 = val28 + start28 + i;
-            val28 = val28 / num28;
-        }
-
-        start29 = start28 + num28;
-        if (0 != num29)
-        {
-            val29 = start29 + 1;
-            for (i = 2; i <= num29; i++)
-                val29 = val29 + start29 + i;
-            val29 = val29 / num29;
-        }
-
-        start30 = start29 + num29;
-        if (0 != num30)
-        {
-            val30 = start30 + 1;
-            for (i = 2; i <= num30; i++)
-                val30 = val30 + start30 + i;
-            val30 = val30 / num30;
-        }
-
-        start31 = start30 + num30;
-        if (0 != num31)
-        {
-            val31 = start31 + 1;
-            for (i = 2; i <= num31; i++)
-                val31 = val31 + start31 + i;
-            val31 = val31 / num31;
-        }
-
-        start32 = start31 + num31;
-        if (0 != num32)
-        {
-            val32 = start32 + 1;
-            for (i = 2; i <= num32; i++)
-                val32 = val32 + start32 + i;
-            val32 = val32 / num32;
-        }
-
-        // Walk input x again, assigning RANK values.
-        for (i = 0; i < n; i++)
-        {
-            val = BDCX(i, col);
-            if (1 == val) RANK(i, col) = val1;
-            else if (2 == val) RANK(i, col) = val2;
-            else if (3 == val) RANK(i, col) = val3;
-            else if (4 == val) RANK(i, col) = val4;
-            else if (5 == val) RANK(i, col) = val5;
-            else if (6 == val) RANK(i, col) = val6;
-            else if (7 == val) RANK(i, col) = val7;
-            else if (8 == val) RANK(i, col) = val8;
-            else if (9 == val) RANK(i, col) = val9;
-            else if (10 == val) RANK(i, col) = val10;
-            else if (11 == val) RANK(i, col) = val11;
-            else if (12 == val) RANK(i, col) = val12;
-            else if (13 == val) RANK(i, col) = val13;
-            else if (14 == val) RANK(i, col) = val14;
-            else if (15 == val) RANK(i, col) = val15;
-            else if (16 == val) RANK(i, col) = val16;
-            else if (17 == val) RANK(i, col) = val17;
-            else if (18 == val) RANK(i, col) = val18;
-            else if (19 == val) RANK(i, col) = val19;
-            else if (20 == val) RANK(i, col) = val20;
-            else if (21 == val) RANK(i, col) = val21;
-            else if (22 == val) RANK(i, col) = val22;
-            else if (23 == val) RANK(i, col) = val23;
-            else if (24 == val) RANK(i, col) = val24;
-            else if (25 == val) RANK(i, col) = val25;
-            else if (26 == val) RANK(i, col) = val26;
-            else if (27 == val) RANK(i, col) = val27;
-            else if (28 == val) RANK(i, col) = val28;
-            else if (29 == val) RANK(i, col) = val29;
-            else if (30 == val) RANK(i, col) = val30;
-            else if (31 == val) RANK(i, col) = val31;
-            else
-                RANK(i, col) = val32;
+            rating = input_array[(i) * 2 + (col)];
+            if (rating >= 1 && rating <= MAX_BUCKETS)
+                RANK(i, col) = avg[rating - 1];
         }
     } // end column rankings for loop
 
     double xrho, xnum = 0, xdem1 = 0, xdem2 = 0, xnconst;
 
-    xnconst = (double) n * (((double) n + 1.0) / 2.0) * (((double) n + 1.0) / 2.0);
+    xnconst = (double) array_len * (((double) array_len + 1.0) / 2.0) * (((double) array_len + 1.0) / 2.0);
 
-    // Work on numreator.
-    for (i = 0; i < n; i++)
+    // Work on numerator.
+    for (i = 0; i < array_len; i++)
     {
         xnum += (RANK(i, 0) * RANK(i, 1));
     }
     xnum -= xnconst;
 
     // Work on denominator.
-    for (i = 0; i < n; i++)
+    for (i = 0; i < array_len; i++)
     {
         xdem1 += (RANK(i, 0) * RANK(i, 0));
     }
     xdem1 -= xnconst;
     xdem1 = sqrt(xdem1);
 
-    for (i = 0; i < n; i++)
+    for (i = 0; i < array_len; i++)
     {
         xdem2 += (RANK(i, 1) * RANK(i, 1));
     }
@@ -629,7 +276,7 @@ double spearman(int n, const uint8_t *x)
     {
         // if we're in a NaN situation, compute spearman's rho like I did previously.
         double sum = 0;
-        for (i = 0; i < n; i++)
+        for (i = 0; i < array_len; i++)
         {
             double diff;
             diff = RANK(i, 0) - RANK(i, 1);
@@ -637,7 +284,7 @@ double spearman(int n, const uint8_t *x)
         }
 
         // Insert sum into spear calc.
-        xrho = 1.0 - ((6.0 * sum) / (double) ((n * n * n) - n));
+        xrho = 1.0 - ((6.0 * sum) / (double) ((array_len * array_len * array_len) - array_len));
     }
 
     return xrho;
@@ -810,7 +457,7 @@ void buildValences(uint32_t thread, uint32_t x)
             if (g_pairs[thread][elts_walker].num_rat > RATINGS_THRESH) break;
         }
     } // end while there are more pairs to process, using index
-    
+
     if (fclose(fp2) != 0)
     {
         syslog(LOG_ERR, "Error closing output file.");

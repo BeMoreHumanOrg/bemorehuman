@@ -156,7 +156,7 @@ int main(int argc, char **argv)
         switch (opt)
         {
             case 'r':   // for "rating-buckets"
-                if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > 32)
+                if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > MAX_BUCKETS)
                 {
                     printf("Error: the argument for -r should be > 1 and < 33 instead of %s. Exiting. ***\n", optarg);
                     exit(EXIT_FAILURE);
