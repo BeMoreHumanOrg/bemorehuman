@@ -53,6 +53,7 @@ static int pull_from_files(bool);
 static fewbit_t g_slopes[256];
 static fewbit_t g_offsets[256];
 static int8_t g_tiny_slopes[NUM_SO_BUCKETS];
+static double g_tiny_slopes_inv[NUM_SO_BUCKETS];
 static int8_t g_tiny_offsets[NUM_SO_BUCKETS];
 
 static uint64_t g_valence_count = 0;
@@ -811,7 +812,10 @@ static int pull_from_files(bool createDS)
 
     if (f_start) g_tiny_slopes[0] = 10;   // right at the front of the queue b/c he's a large percentage of the s/o
     for (i = 0; i < (NUM_SO_BUCKETS - f_start); i++)
+    {
         g_tiny_slopes[i + f_start] = buckets_slope[i].value;
+        g_tiny_slopes_inv[i + f_start] = (double) 1.0 / g_tiny_slopes[i + f_start];
+    }
 
     // Use popularity order to determine order of slopes/offsets in memory
     for (i = 0; i < slope_count; i++ )
@@ -1207,8 +1211,16 @@ static void load_so_compressed()
             {
                 if (token_number <= NUM_SO_BUCKETS)
                 {
-                    if (do_slopes) g_tiny_slopes[token_number - 1] = (int8_t) strtol(token, NULL, 10);
-                    else g_tiny_offsets[token_number - 1] = (int8_t) strtol(token, NULL, 10);
+                    if (do_slopes)
+                    {
+                        g_tiny_slopes[token_number - 1] = (int8_t) strtol(token, NULL, 10);
+                        if (0 == g_tiny_slopes[token_number - 1])
+                            g_tiny_slopes_inv[token_number - 1] = 0; // guard against div by 0 and leave this as 0.
+                        else
+                            g_tiny_slopes_inv[token_number - 1] = (double) 1.0 / g_tiny_slopes[token_number - 1];
+                    }
+                    else
+                        g_tiny_offsets[token_number - 1] = (int8_t) strtol(token, NULL, 10);
                 }
                 else
                 {
@@ -1470,6 +1482,11 @@ popularity_t *pop_leash()
 int8_t *tiny_slopes_leash()
 {
     return (g_tiny_slopes);
+}
+
+double *tiny_slopes_inv_leash()
+{
+    return (g_tiny_slopes_inv);
 }
 
 int8_t *tiny_offsets_leash()

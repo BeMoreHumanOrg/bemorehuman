@@ -47,7 +47,7 @@ static void init_workingset(size_t num_recs)
     {
         g_workingset[i].rating_count = 0;
         g_workingset[i].elementid =  (exp_elt_t) i + 1;
-        g_workingset[i].rating_accum = 0.0;
+        g_workingset[i].rating_accum = (float) 0.0;
         g_workingset[i].rating = -1;
     }
 } // end ini_workingset()
@@ -59,7 +59,7 @@ static void init_workingset(size_t num_recs)
 // Returns -1 if the first rating (recommendation value) is more than the second
 //          0 if the ratings are equal
 //          1 if the first rating is less than the second rating
-// NOTE: this behavior is flipped (normally sort is ascending) so we get highest
+// NOTE: this behavior is flipped (normally sort is ascending) so we get the highest
 // rating values at beginning of sorted structure
 //
 static int predcmp(const void *p1, const void *p2)
@@ -79,7 +79,7 @@ static int predcmp(const void *p1, const void *p2)
         }
         else
         {
-            // Favor preds with higher ratingCounts b/c they're a bit stronger.
+            // Favor predictions with higher ratingCounts b/c they're a bit stronger.
             if (x.rating_count > y.rating_count)
             {
                 return (-1);
@@ -93,154 +93,114 @@ static int predcmp(const void *p1, const void *p2)
 } // end predcmp()
 
 
-// Tally gets called once for each live user's ratings and calculates possible recommendation values for the other elements
+// Tally gets called once for each live user and calculates possible recommendation values for the other elements
 static void tally(valence_t *bb,
                   const bb_ind_t *bind_seg,
                   valence_t *bb_ds,
                   const bb_ind_t *bind_seg_ds,
-                  uint32_t user_rated,
-                  short user_rating,
+                  int rat_length,
+                  rating_t ur[],
                   const int8_t *tiny_slopes,
+                  const double *tiny_slopes_inv,
                   const int8_t *tiny_offsets)
 {
-    double rating, denominator;
-    int numerator, int_rating;
-    valence_t *bb_ptr;
-    exp_elt_t prediction_to_make;
-    short short_slope, short_offset;
-    uint8_t slope_index, offset_index;
-
-    // There are two similar but different sections of code below. They are separate for increased clarity. Merging would save a little
-    // redundancy but add complexity in human understanding. Because this piece is the core of the recommender, let's err
-    // on the side of human understanding.
-
-    // First we need to find the (x,uR) valences where x goes from 1 to (uR - 1).
-    // Iterate over, e.g., (1..232,233) given 233 as userRated passed in to Tally()
-
-    bb_ind_t  y_start = bind_seg_ds[user_rated];
-    exp_elt_t  user_rated_next;
-    
-    user_rated_next = user_rated;
-    
-    while (-1 == bind_seg_ds[++user_rated_next])
+    for (int i=0; i < rat_length; i++)
     {
-        if (user_rated_next == (BE.num_elts - 1))
-            break;
-    }
-    
-    bb_ind_t y_start_next = bind_seg_ds[user_rated_next];
-    
-    // Do we have valences with a user_rated in the y position?
-    if (y_start > -1)
-    {
-        // If y_start_next is -1, there is no next y.
-        if (-1 == y_start_next)
+        double rating, slope_inv;
+        valence_t *bb_ptr;
+        exp_elt_t prediction_to_make;
+        int8_t short_offset;
+        uint32_t user_rated = ur[i].elementid;
+        uint8_t user_rating = ur[i].rating;
+
+        // There are two similar but different sections of code below. They are separate for increased clarity. Merging would save a little
+        // redundancy but add complexity in human understanding. Because this piece is the core of the recommender, let's err
+        // on the side of human understanding.
+
+        // First we need to find the (x,uR) valences where x goes from 1 to (uR - 1).
+        // Iterate over, e.g., (1..232,233) given 233 as userRated passed in to Tally()
+
+        bb_ind_t  y_start = bind_seg_ds[user_rated];
+        exp_elt_t  user_rated_next;
+
+        user_rated_next = user_rated;
+
+        while (-1 == bind_seg_ds[++user_rated_next])
+            if (user_rated_next == (BE.num_elts - 1)) break;
+
+        bb_ind_t y_start_next = bind_seg_ds[user_rated_next];
+
+        // Do we have valences with a user_rated in the y position?
+        if (y_start > -1)
         {
-            // We only get here if there is no next y.
-            y_start_next = (bb_ind_t) (g_num_confident_valences - 1);
-            syslog(LOG_INFO, "y_start is %ld and y_start_next is %ld", y_start, y_start_next);
+            // If y_start_next is -1, there is no next y.
+            if (-1 == y_start_next)
+                y_start_next = (bb_ind_t) (g_num_confident_valences - 1);
+
+            for (bb_ptr = &bb_ds[y_start]; bb_ptr < &bb_ds[y_start_next]; bb_ptr++)
+            {
+                // Get the prediction_to_make value from the val_key.
+                prediction_to_make = GET_ELT(bb_ptr->eltid);
+
+                // Get the inverse or y-intercept if inverse is 1/0 bc we just want to pick a val close to y.
+                slope_inv = (0 == tiny_slopes_inv[GET_HIGH_4_BITS(bb_ptr->soindex)]) ? user_rating :
+                            tiny_slopes_inv[GET_HIGH_4_BITS(bb_ptr->soindex)] ;
+                short_offset = tiny_offsets[GET_LOW_4_BITS(bb_ptr->soindex)];
+
+                // We are solving for x, so we want x = (y - b) / m
+
+                // Note: We want to multiply, not divide at this point b/c divide is slower (this code runs a lot)
+                // Note: It's important to get the scaling right for all variables. This code is correct!
+                rating = FLOAT_TO_SHORT_MULT * (slope_inv * (FLOAT_TO_SHORT_MULT * user_rating - short_offset));
+
+                g_workingset[prediction_to_make-1].rating_accum +=
+                        (rating < RATINGS_BOUND_LOWER) ? RATINGS_BOUND_LOWER
+                        : (rating > RATINGS_BOUND_UPPER) ? RATINGS_BOUND_UPPER : (float) rating;
+
+                g_workingset[prediction_to_make-1].rating_count++;
+            } // end for loop
+        } // end if y_start not 0
+
+        // Here we need to do the (uR, y) valences where y goes from uR+1 to NUM_ELTS.
+        // Get the starting point of the fixed x value in the Beast.
+        bb_ind_t  x_start = bind_seg[user_rated];
+        user_rated_next = user_rated;
+        while (-1 == bind_seg[++user_rated_next])
+        {
+            if (user_rated_next == (BE.num_elts - 1))
+                break;
         }
 
-        for (bb_ptr = &bb_ds[y_start]; bb_ptr < &bb_ds[y_start_next]; bb_ptr++)
-        {
-            // Get the prediction_to_make value from the val_key.
-            GETELT(bb_ptr->eltid, prediction_to_make);
-            
-            GETHIBITS(bb_ptr->soindex, slope_index);
-            GETLOBITS(bb_ptr->soindex, offset_index);
-            
-            short_slope = tiny_slopes[slope_index];
-            short_offset = tiny_offsets[offset_index];
+        bb_ind_t x_start_next = bind_seg[user_rated_next];
 
-            // We are solving for x so we want x = (y - b) / m
-            // Numerator calculation assumes it's operating on ints.
-            numerator = (FLOAT_TO_SHORT_MULT * user_rating) - short_offset;
-     
-            // Guard against div by 0.
-            if (0 == short_slope)
-                short_slope = 1; // add an epsilon to slope.
-     
-            denominator = short_slope / (double) FLOAT_TO_SHORT_MULT;
-            rating = numerator / denominator;
+        // Do we have valences with a user_rated in the x position?
+        if (x_start > -1)
+        {
+            // If x_start_next is -1, there is no next x.
+            if (-1 == x_start_next)
+                x_start_next = (bb_ind_t) (g_num_confident_valences - 1);
 
-            if (rating < RATINGS_BOUND_LOWER)
+            for (bb_ptr = &bb[x_start]; bb_ptr < &bb[x_start_next]; bb_ptr++)
             {
-                g_workingset[prediction_to_make-1].rating_accum += RATINGS_BOUND_LOWER;
-            }
-            else
-            {
-                if (rating > RATINGS_BOUND_UPPER)
-                {
-                    g_workingset[prediction_to_make-1].rating_accum += RATINGS_BOUND_UPPER;
-                }
-                else
-                {
-                    g_workingset[prediction_to_make-1].rating_accum += (float) rating;
-                }
-            }
-            g_workingset[prediction_to_make-1].rating_count++;
-        } // end for loop
-    } // end if y_start not 0
-    
-    // Here we need to do the (uR, y) valences where y goes from uR+1 to NUM_ELTS.
-    // Get the starting point of the fixed x value in the Beast.
-    bb_ind_t  x_start = bind_seg[user_rated];
-    user_rated_next = user_rated;
-    while (-1 == bind_seg[++user_rated_next])
-    {
-        if (user_rated_next == (BE.num_elts - 1))
-            break;
-    }
-    
-    bb_ind_t x_start_next = bind_seg[user_rated_next];
-    
-    // Do we have valences with a user_rated in the x position?
-    if (x_start > -1)
-    {
-        // If x_start_next is -1, there is no next x.
-        if (-1 == x_start_next)
-        {
-            // We only get here if there is no next x
-            x_start_next = (bb_ind_t) (g_num_confident_valences - 1);
-            syslog(LOG_INFO, "DEBUG: x_start is %ld and x_start_next is %ld", x_start, x_start_next);
-        }
-        
-        for (bb_ptr = &bb[x_start]; bb_ptr < &bb[x_start_next]; bb_ptr++)
-        {
-            GETELT(bb_ptr->eltid, prediction_to_make);
-            
-            GETHIBITS(bb_ptr->soindex, slope_index);
-            GETLOBITS(bb_ptr->soindex, offset_index);
-            
-            short_slope = tiny_slopes[slope_index];
-            short_offset = tiny_offsets[offset_index];
-            
-            // We are solving for y so we want y = mx + b
-            int_rating = user_rating * short_slope + short_offset;
-            
-            if (int_rating < RATINGS_BOUND_LOWER)
-            {
-                g_workingset[prediction_to_make - 1].rating_accum += RATINGS_BOUND_LOWER;
-            }
-            else
-            {
-                if (int_rating > RATINGS_BOUND_UPPER)
-                {
-                    g_workingset[prediction_to_make - 1].rating_accum += RATINGS_BOUND_UPPER;
-                }
-                else
-                {
-                    g_workingset[prediction_to_make - 1].rating_accum += int_rating;
-                }
-            }
-            g_workingset[prediction_to_make - 1].rating_count++;
-        } // end for loop across x,y pairs for fixed x = userRated
-    } // end if x_start not 0
+                // Get the prediction_to_make value from the val_key.
+                prediction_to_make = GET_ELT(bb_ptr->eltid);
+
+                // We are solving for y, so we want y = mx + b. Scaling is correct.
+                rating = user_rating * tiny_slopes[GET_HIGH_4_BITS(bb_ptr->soindex)] +
+                         tiny_offsets[GET_LOW_4_BITS(bb_ptr->soindex)];
+
+                g_workingset[prediction_to_make-1].rating_accum +=
+                        (rating < RATINGS_BOUND_LOWER) ? RATINGS_BOUND_LOWER
+                        : (rating > RATINGS_BOUND_UPPER) ? RATINGS_BOUND_UPPER : (float) rating;
+                g_workingset[prediction_to_make - 1].rating_count++;
+            } // end for loop across x,y pairs for fixed x = userRated
+        } // end if x_start not 0
+    } // end for loop across user's ratings
 } // end Tally()
 
 
 // Composite the prediction values.
-static void composite(int num_recs)
+static void composite(uint64_t num_recs)
 {
     int i;
     for (i = 0; i < num_recs; i++)
@@ -250,13 +210,13 @@ static void composite(int num_recs)
             g_workingset[i].rating = -10;
             continue;
         }
-        g_workingset[i].rating = g_workingset[i].rating_accum / g_workingset[i].rating_count;
+        g_workingset[i].rating = g_workingset[i].rating_accum / (float) g_workingset[i].rating_count;
     }
 } // end composite()
 
 
 // Put the passed-in eltid's entry at the head of the list.
-static void find_single(int num_recs, int eltid)
+static void find_single(uint64_t num_recs, int eltid)
 {
     int i;
     for (i = 0; i < num_recs; i++)
@@ -270,7 +230,7 @@ static void find_single(int num_recs, int eltid)
             }
             else
             {
-                g_workingset[0].rating = g_workingset[i].rating_accum / g_workingset[i].rating_count;
+                g_workingset[0].rating = g_workingset[i].rating_accum / (float) g_workingset[i].rating_count;
             }
 
             g_workingset[0].elementid = (exp_elt_t) eltid;
@@ -304,8 +264,9 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     
     // Get a handle to the Popularity index.
     popularity_t *pop = pop_leash();
-        
+
     int8_t *tiny_slopes = tiny_slopes_leash();
+    double *tiny_slopes_inv = tiny_slopes_inv_leash();
     int8_t *tiny_offsets = tiny_offsets_leash();
 
     // Check for valid ratings passed in.
@@ -317,13 +278,10 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     init_workingset(BE.num_elts);
 
     int userid = ur[0].userid;
-    int i = 0;
+    int i;
 
-    while (i < rat_length)
-    {
-        tally(bb, bind_seg, bb_ds, bind_seg_ds, ur[i].elementid, ur[i].rating, tiny_slopes, tiny_offsets);
-        i++;
-    }
+    tally(bb, bind_seg, bb_ds, bind_seg_ds, rat_length, ur, tiny_slopes,
+          tiny_slopes_inv, tiny_offsets);
 
     // Now set rating = accum / count.
     composite(BE.num_elts);
@@ -340,53 +298,10 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
         mergesort(g_workingset, BE.num_elts, sizeof(prediction_t), predcmp);
 #endif
         
-        // Copy workingset to recs. Note that numRecs is small. Bit below
+        // Copy workingset to recs. Note that numRecs is small. The bit below
         // should work b/c we've just sorted WorkingSet by pred value
         int ws_walker = 0;
         exp_elt_t curr_elt;
-
-        /*
-        // b debugging
-        // Print the ratings intelligently. How many of each value are there?
-        syslog(LOG_INFO, "&&& Ratings for this user &&&");
-        short r1count = 0, r2count = 0, r3count = 0, r4count = 0, r5count = 0;
-         
-        for (i = 0; i < ratlength; i++)
-        {
-            switch (ur[i].rating)
-            {
-                case 1:
-                    r1count++;
-                    break;
-                case 2:
-                    r2count++;
-                    break;
-                case 3:
-                    r3count++;
-                    break;
-                case 4:
-                    r4count++;
-                    break;
-                case 5:
-                    r5count++;
-                    break;
-                default:
-                    syslog(LOG_ERR, "INVALID rating of %d from user %d", ur[i].rating, ur[i].userId);
-            }
-        }
-        syslog(LOG_INFO, "r1count: %d, r2count: %d, r3count: %d, r4count: %d, r5count: %d", r1count, r2count, r3count, r4count, r5count);
-        
-        // Print the rec values.
-        for (i = 0; i < numRecs * 10; i++)
-        {
-            syslog(LOG_INFO, "before finding correct popularity recvalue[%d] is %f, ratingCount is %d, pop is %d",
-                   i,
-                   (double) g_WorkingSet[i].rating,
-                   g_WorkingSet[i].ratingCount,
-                   Pop[g_WorkingSet[i].elementId]);
-        }
-        // e debugging
-        */
 
         i = 0;
         
@@ -415,7 +330,7 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
         recs[0].rating_count = g_workingset[0].rating_count;
     } // end else we're trying to find a single rec
 
-    // we walk the preds list
+    // we walk the predictions list
     float rec_value;
     double tmp_float;
     long tmp_long;
@@ -446,7 +361,7 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
         // *10, round, /10 to get just one single digit after decimal place
         tmp_float = (double) rec_value;
         tmp_long = bmh_round(tmp_float);
-        rec_value = tmp_long / (float) 10.0;
+        rec_value = (float) tmp_long / (float) 10.0;
         recs[i].rating = rec_value;
     } // end for loop
 

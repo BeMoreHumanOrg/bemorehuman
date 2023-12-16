@@ -94,8 +94,9 @@ static void internal_singlerec(void *request)
 
     InternalSingleRecResponse message_out = INTERNAL_SINGLE_REC_RESPONSE__INIT;
 
-    // Does the passed-in personid match a user we know about?
-    if (message_in->personid > 0 && message_in->personid <= BE.num_people && 0 != g_big_rat_index[message_in->personid])
+    // Does the passed-in personid match a user we know about? Checking for >1 b/c personid of 1 has
+    // correct index of 0.
+    if (message_in->personid > 1 && message_in->personid <= BE.num_people && 0 != g_big_rat_index[message_in->personid])
     {
         // We can generate recs for this person
         target_id = (int) message_in->elementid;
@@ -156,13 +157,13 @@ static void internal_singlerec(void *request)
         if (predictions(ratings, num_rats, recs, 1, target_id, max_obscurity))
         {
             // Do something with recs, like print 'em out.
-            syslog(LOG_INFO, "element: %d recvalue: %d.%.6d accum: %d.%.6d count:%d",
-                   recs[0].elementid,
-                   (int) recs[0].rating,
-                   (int) ((recs[0].rating - (int) recs[0].rating) * 1000000),
-                   (int) recs[0].rating_accum,
-                   (int) ((recs[0].rating_accum - (int) recs[0].rating_accum) * 1000000),
-                   recs[0].rating_count);
+            // syslog(LOG_INFO, "element: %d recvalue: %d.%.6d accum: %d.%.6d count:%d",
+            //       recs[0].elementid,
+            //       (int) recs[0].rating,
+            //       (int) ((recs[0].rating - (int) recs[0].rating) * 1000000),
+            //       (int) recs[0].rating_accum,
+            //       (int) ((recs[0].rating_accum - (int) recs[0].rating_accum) * 1000000),
+            //       recs[0].rating_count);
 
             double current_pred_value = (double) recs[0].rating;
             int int_result;

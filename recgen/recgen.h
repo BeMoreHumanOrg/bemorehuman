@@ -71,6 +71,7 @@
 #define MAX_PREDS_PER_PERSON 200
 #define MAX_RATS_PER_PERSON 1000
 #define FLOAT_TO_SHORT_MULT 10
+#define FLOAT_TO_SHORT_MULT_SQ 100
 #define NUM_SO_BUCKETS 16       // How many slope/offset buckets do we want?
 #define RECS_BUCKET_SIZE 20
 
@@ -113,13 +114,6 @@
 	b += (a[2]); \
 } while (0)
 
-#define GETELT(a, b) do { \
-	b = 0; \
-    b += (((unsigned) a[0] & 0x0f ) << (unsigned) 16); \
-	b += ((unsigned) a[1] << (unsigned) 8); \
-    b += (a[2]); \
-} while (0)
-
 // Use this before SETHIBITS.
 #define SETELT(a, b) do { \
     a[2] = (b) & 0xff; \
@@ -127,23 +121,18 @@
     a[0] = (b >> 16) & 0x0f; \
 } while (0)
 
-#define GETHIBITS(a, b) do { \
-b = ((unsigned) a >> (unsigned) 4); \
-} while (0)
-
 // Use this before SETLOBITS.
 #define SETHIBITS(a, b) do { \
 a = ((unsigned) b << (unsigned) 4); \
-} while (0)
-
-#define GETLOBITS(a, b) do { \
-b = ((unsigned) a & 0x0f); \
 } while (0)
 
 #define SETLOBITS(a, b) do { \
 a += ((unsigned) b); \
 } while (0)
 
+#define GET_ELT(a) (((uint32_t)a[0] << 16) | ((uint32_t)a[1] << 8) | a[2])
+#define GET_LOW_4_BITS(byte) ((byte) & 0x0F)
+#define GET_HIGH_4_BITS(byte) ((byte) >> 4)
 
 //
 // Typedefs
@@ -261,6 +250,8 @@ extern bb_ind_t *bind_seg_ds_leash(void);
 extern popularity_t *pop_leash(void);
 
 extern int8_t *tiny_slopes_leash(void);
+
+extern double *tiny_slopes_inv_leash(void);
 
 extern int8_t *tiny_offsets_leash(void);
 
