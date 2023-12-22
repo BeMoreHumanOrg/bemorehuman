@@ -127,9 +127,9 @@ strlcpy(char *restrict dst,        // O - Destination string
     if (n == 0)
     {
         if (size != 0)
-        *d = '\0';          // NULL-terminate dst
+            *d = '\0';          // NULL-terminate dst
         while (*s++)
-        ;
+            ;
     }
 
     return (s - src - 1);   // count does not include NULL
@@ -222,18 +222,7 @@ bool check_make_dir(char *dirname)
 // Round isn't really included anywhere convenient. input: double, output long
 long bmh_round(double x)
 {
-    long a = (long) x;
-    if (x > 0)
-    {
-        if ((x - a) >= 0.5)
-            a += 1;
-    }
-    else
-    {
-        if ((x - a) <= -0.5)
-            a -= 1;
-    }
-    return (a);
+    return (x > 0) ? (long)(x + 0.5) : (long)(x - 0.5);
 }
 
 //  END math helpers
