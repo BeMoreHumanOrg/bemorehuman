@@ -94,9 +94,8 @@ static void internal_singlerec(void *request)
 
     InternalSingleRecResponse message_out = INTERNAL_SINGLE_REC_RESPONSE__INIT;
 
-    // Does the passed-in personid match a user we know about? Checking for >1 b/c personid of 1 has
-    // correct index of 0.
-    if (message_in->personid > 1 && message_in->personid <= BE.num_people && 0 != g_big_rat_index[message_in->personid])
+    // Does the passed-in personid match a user we know about?
+    if (message_in->personid > 0 && message_in->personid <= BE.num_people && 0 != g_big_rat_index[message_in->personid])
     {
         // We can generate recs for this person
         target_id = (int) message_in->elementid;

@@ -30,8 +30,12 @@
 //
 
 // Making these static because their scope is intentionally limited to this file.
-// The workingset is the working area where we build up the predictions.
-static __thread prediction_t *g_workingset;
+static __thread prediction_t *g_workingset;  // The workingset is the working area where we build up the predictions.
+static bool pcr_created = false;  // Have we populated the pre-calculated ratings yet?
+
+static int pcrx[256][32];    // Pre-calculated rating of x = (y - b)/m
+static int pcry[256][32];    // Pre-calculated rating of y = mx + b
+
 
 void create_workingset(size_t num_recs)
 {
@@ -47,7 +51,7 @@ static void init_workingset(size_t num_recs)
     {
         g_workingset[i].rating_count = 0;
         g_workingset[i].elementid =  (exp_elt_t) i + 1;
-        g_workingset[i].rating_accum = (float) 0.0;
+        g_workingset[i].rating_accum = 0;
         g_workingset[i].rating = -1;
     }
 } // end ini_workingset()
@@ -93,23 +97,52 @@ static int predcmp(const void *p1, const void *p2)
 } // end predcmp()
 
 
+// Pre-calculate all possible ratings so we don't have to do this when generating each individual rec. 256 possible
+// slope-offset pairs and 32 possible ratings values for a total of 8192 possible combinations.
+static void create_pcrs(const int8_t *tiny_slopes,
+                        const double *tiny_slopes_inv,
+                        const int8_t *tiny_offsets)
+{
+    double rating;
+    int counter = 0;
+    syslog(LOG_INFO, "....Inside create_pcrs....");
+    for (uint8_t i = 0; counter < 256; i++, counter++)   // slope - offset combination
+    {
+        for (int j = 1; j < 33; j++)   // user-rating
+        {
+            // pcrx holds the rating of x = (y - b) / m
+            // Note: We want to multiply, not divide at this point b/c divide is slower (this code runs a lot)
+            // Note: It's important to get the scaling right for all variables. This code is correct!
+            rating = FLOAT_TO_SHORT_MULT * (tiny_slopes_inv[GET_HIGH_4_BITS(i)] * (FLOAT_TO_SHORT_MULT * j
+                    - tiny_offsets[GET_LOW_4_BITS(i)]));
+            rating = (rating < RATINGS_BOUND_LOWER) ? RATINGS_BOUND_LOWER
+                    : (rating > RATINGS_BOUND_UPPER) ? RATINGS_BOUND_UPPER : rating;
+            pcrx[i][j-1] = (int) bmh_round(rating);
+
+            // pcry holds the rating of y = mx + b.
+            rating = j * tiny_slopes[GET_HIGH_4_BITS(i)] + tiny_offsets[GET_LOW_4_BITS(i)];
+            rating = (rating < RATINGS_BOUND_LOWER) ? RATINGS_BOUND_LOWER
+                    : (rating > RATINGS_BOUND_UPPER) ? RATINGS_BOUND_UPPER : rating;
+            pcry[i][j-1] = (int) bmh_round(rating);
+        } // end for loop across all possible user-rating values
+    } // end for loop across all possible soindex values
+    pcr_created = true;
+} // end create_pcrs()
+
+
 // Tally gets called once for each live user and calculates possible recommendation values for the other elements
 static void tally(valence_t *bb,
                   const bb_ind_t *bind_seg,
                   valence_t *bb_ds,
                   const bb_ind_t *bind_seg_ds,
                   int rat_length,
-                  rating_t ur[],
-                  const int8_t *tiny_slopes,
-                  const double *tiny_slopes_inv,
-                  const int8_t *tiny_offsets)
+                  rating_t ur[])
 {
     for (int i=0; i < rat_length; i++)
     {
-        double rating, slope_inv;
+        int rating;
         valence_t *bb_ptr;
         exp_elt_t prediction_to_make;
-        int8_t short_offset;
         uint32_t user_rated = ur[i].elementid;
         uint8_t user_rating = ur[i].rating;
 
@@ -142,22 +175,10 @@ static void tally(valence_t *bb,
                 // Get the prediction_to_make value from the val_key.
                 prediction_to_make = GET_ELT(bb_ptr->eltid);
 
-                // Get the inverse or y-intercept if inverse is 1/0 bc we just want to pick a val close to y.
-                slope_inv = (0 == tiny_slopes_inv[GET_HIGH_4_BITS(bb_ptr->soindex)]) ? user_rating :
-                            tiny_slopes_inv[GET_HIGH_4_BITS(bb_ptr->soindex)] ;
-                short_offset = tiny_offsets[GET_LOW_4_BITS(bb_ptr->soindex)];
-
                 // We are solving for x, so we want x = (y - b) / m
-
-                // Note: We want to multiply, not divide at this point b/c divide is slower (this code runs a lot)
-                // Note: It's important to get the scaling right for all variables. This code is correct!
-                rating = FLOAT_TO_SHORT_MULT * (slope_inv * (FLOAT_TO_SHORT_MULT * user_rating - short_offset));
-
-                g_workingset[prediction_to_make-1].rating_accum +=
-                        (rating < RATINGS_BOUND_LOWER) ? RATINGS_BOUND_LOWER
-                        : (rating > RATINGS_BOUND_UPPER) ? RATINGS_BOUND_UPPER : (float) rating;
-
-                g_workingset[prediction_to_make-1].rating_count++;
+                rating = pcrx[bb_ptr->soindex][user_rating - 1];
+                g_workingset[prediction_to_make - 1].rating_accum += rating;
+                g_workingset[prediction_to_make - 1].rating_count++;
             } // end for loop
         } // end if y_start not 0
 
@@ -186,12 +207,8 @@ static void tally(valence_t *bb,
                 prediction_to_make = GET_ELT(bb_ptr->eltid);
 
                 // We are solving for y, so we want y = mx + b. Scaling is correct.
-                rating = user_rating * tiny_slopes[GET_HIGH_4_BITS(bb_ptr->soindex)] +
-                         tiny_offsets[GET_LOW_4_BITS(bb_ptr->soindex)];
-
-                g_workingset[prediction_to_make-1].rating_accum +=
-                        (rating < RATINGS_BOUND_LOWER) ? RATINGS_BOUND_LOWER
-                        : (rating > RATINGS_BOUND_UPPER) ? RATINGS_BOUND_UPPER : (float) rating;
+                rating = pcry[bb_ptr->soindex][user_rating - 1];
+                g_workingset[prediction_to_make - 1].rating_accum += rating;
                 g_workingset[prediction_to_make - 1].rating_count++;
             } // end for loop across x,y pairs for fixed x = userRated
         } // end if x_start not 0
@@ -210,7 +227,7 @@ static void composite(uint64_t num_recs)
             g_workingset[i].rating = -10;
             continue;
         }
-        g_workingset[i].rating = g_workingset[i].rating_accum / (float) g_workingset[i].rating_count;
+        g_workingset[i].rating = (int16_t) bmh_round(g_workingset[i].rating_accum / (double) g_workingset[i].rating_count);
     }
 } // end composite()
 
@@ -226,11 +243,11 @@ static void find_single(uint64_t num_recs, int eltid)
             // found it! now put it first
             if (g_workingset[i].rating_count < MIN_VALENCES_FOR_PREDICTIONS)
             {
-                g_workingset[0].rating = -1;
+                g_workingset[0].rating = -10;
             }
             else
             {
-                g_workingset[0].rating = g_workingset[i].rating_accum / (float) g_workingset[i].rating_count;
+                g_workingset[0].rating = (int16_t) bmh_round(g_workingset[i].rating_accum / (double) g_workingset[i].rating_count);
             }
 
             g_workingset[0].elementid = (exp_elt_t) eltid;
@@ -269,6 +286,12 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     double *tiny_slopes_inv = tiny_slopes_inv_leash();
     int8_t *tiny_offsets = tiny_offsets_leash();
 
+    // If we haven't created the pre-computed ratings yet, do that. Only need to do this once per valence load, so
+    // the creation should really be closer to that. It's here for now just see if it's worth it overall.
+    if (!pcr_created) create_pcrs(tiny_slopes,
+                                  tiny_slopes_inv,
+                                  tiny_offsets);
+
     // Check for valid ratings passed in.
     if ((NULL == ur) || (0 == rat_length))
     {
@@ -280,8 +303,7 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     int userid = ur[0].userid;
     int i;
 
-    tally(bb, bind_seg, bb_ds, bind_seg_ds, rat_length, ur, tiny_slopes,
-          tiny_slopes_inv, tiny_offsets);
+    tally(bb, bind_seg, bb_ds, bind_seg_ds, rat_length, ur);
 
     // Now set rating = accum / count.
     composite(BE.num_elts);
@@ -330,43 +352,21 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
         recs[0].rating_count = g_workingset[0].rating_count;
     } // end else we're trying to find a single rec
 
-    // we walk the predictions list
-    float rec_value;
-    double tmp_float;
-    long tmp_long;
-
-    /*
-    // b debugging
-    for (i = 0; i < numRecs; i++)
-    {
-        syslog(LOG_INFO, "before rounding recvalue[%d] is %f, ratingCount is %d, pop is %d",
-               i,
-               (double) recs[i].rating,
-               recs[i].ratingCount,
-               Pop[recs[i].elementId]);
-    }
-    // e debugging
-    */
-
     // Clean up the elt recommendations for this user.
     for (i = 0; i < num_recs; i++)
     {
-        rec_value = recs[i].rating;
-        if ((int) (rec_value) == -10)
+        if ((int) (recs[i].rating) == -10)
         {
             syslog(LOG_WARNING, "WARNING: found a -1 for a prediction for element %d, user %d.",
                    recs[i].elementid, userid);
         }
 
-        // *10, round, /10 to get just one single digit after decimal place
-        tmp_float = (double) rec_value;
-        tmp_long = bmh_round(tmp_float);
-        rec_value = (float) tmp_long / (float) 10.0;
-        recs[i].rating = rec_value;
+        recs[i].rating = (int16_t) bmh_round(recs[i].rating / 10.0);
     } // end for loop
 
     finish = current_time_micros();
     syslog(LOG_INFO, "Time to perform Prediction: %d microseconds.", (int) (finish - start));
+
     return (true);
 }// end Predictions()
 

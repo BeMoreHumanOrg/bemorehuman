@@ -156,6 +156,8 @@ unsigned int random_uint(unsigned int limit)
         unsigned char c[sizeof(unsigned int)];
     } u;
 
+    u.i = 0;
+
     do
     {
         if (!RAND_bytes(u.c, sizeof(u.c)))

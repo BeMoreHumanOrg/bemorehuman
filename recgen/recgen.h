@@ -186,8 +186,9 @@ typedef struct
 {
     exp_elt_t elementid;
     int rating_count;
-    float rating;
-    float rating_accum;
+    int rating;
+// orig    int16_t rating;
+    uint32_t rating_accum;
 } prediction_t;
 
 typedef struct
