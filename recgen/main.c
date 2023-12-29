@@ -32,14 +32,136 @@
 // This is the bemorehuman recommendation engine.
 
 // Globals
+const char *error_strings[] = {"Status OK",
+                               "Protobuf decoding failed for recs() invocation.",
+                               "personid from client is incorrect.",
+                               "No ratings for this user."};
+
 static rating_t *g_big_rat;
 static uint32_t *g_big_rat_index;
 static uint32_t g_event_counter = 0;
 static event_t g_events_to_persist[EVENTS_TO_PERSIST_MAX];
 static bool wait_for_valence_reload = false;
-
 uint8_t g_output_scale = 5;
+static double conv_to_output_scale;
 
+static void *json_serialize(const void *data, const char *status, size_t *len)
+{
+    // Convert data to JSON string
+    return (void *) NULL;
+}
+
+static void *json_deserialize(const size_t len, const void *data, int *status)
+{
+    // Convert JSON string to data structure
+    return (void *) NULL;
+}
+
+// We may not need this one as it's already being done in hum or fcgi
+// The json or protobuf is in the POST data.
+static int json_receive(int sockfd, void *buf, const size_t len)
+{
+    // Receive JSON string
+    return 0;
+}
+
+// We may not need this one as it's already being done in hum or fcgi
+// The json or protobuf is in the POST data.
+static int json_send(int sockfd, const void *data, const size_t len)
+{
+    // Send JSON string
+    return 0;
+}
+
+// Take in recitems **, status string, and return protobuf message and len of message
+static void *protobuf_serialize(const void *data, const char *status, size_t *len)
+{
+    RecsResponse pb_response = RECS_RESPONSE__INIT;              // declare the response
+    pb_response.status = malloc(sizeof(char) * STATUS_LEN);
+
+    // Use protobuf functions to serialize data
+    pb_response.n_recslist = (size_t) RECS_BUCKET_SIZE;
+    pb_response.recslist = (RecItem **) data;
+    strlcpy(pb_response.status, status, sizeof(pb_response.status));
+    *len = recs_response__get_packed_size(&pb_response);
+    void *buffer = malloc(*len);
+    recs_response__pack(&pb_response, buffer);
+
+    // free pb_response
+    free(pb_response.status);
+
+    return buffer;
+} // end protobuf_serialize()
+
+// Take in POST data and return a recs_request_t, status returned in status param
+static void *protobuf_deserialize(const size_t len, const void *data, int *status)
+{
+    // Use protobuf functions to deserialize data
+    Recs *message_in;
+    message_in = recs__unpack(NULL, len, data);
+    // Check for errors
+    if (message_in == NULL)
+    {
+        syslog(LOG_ERR, "Protobuf decoding failed for recs() invocation.");
+        *status = PROTOBUF_DECODE_FAILED_FOR_RECS;
+        return NULL;
+    }
+    // Does the passed-in personid not match any people we know about?
+    if (message_in->personid < 0 || message_in->personid > BE.num_people)
+    {
+        syslog(LOG_ERR, "personid from client is incorrect: ---%d---", message_in->personid);
+        *status = PERSONID_FROM_CLIENT_INCORRECT;
+        return NULL;
+    }
+    // create the return structure
+    recs_request_t *rr;
+    rr = malloc(sizeof(recs_request_t));
+    rr->personid = message_in->personid;
+    rr->popularity = (popularity_t) message_in->popularity;
+
+    // get the possible ratings
+    if (rr->personid)
+    {
+        // todo: malloc and fill in ratings rr->
+    }
+    recs__free_unpacked(message_in, NULL);
+    *status = STATUS_OK;
+    return rr;
+} // end protobuf_deserialize()
+
+// We may not need this one as it's already being done in hum or fcgi
+// The json or protobuf is in the POST data.
+static int protobuf_receive(int sockfd, void *buf, size_t len)
+{
+    // Use protobuf functions to receive data
+    return 0;
+}
+
+// We may not need this one as it's already being done in hum or fcgi
+// The json or protobuf is in the POST data.
+static int protobuf_send(int sockfd, const void *data, size_t len)
+{
+    // Use protobuf functions to send data
+    return 0;
+}
+
+protocol_interface json_protocol =
+{
+        .serialize = json_serialize,
+        .deserialize = json_deserialize,
+        .send = json_send,
+        .receive = json_receive
+};
+
+protocol_interface protobuf_protocol =
+{
+        .serialize = protobuf_serialize,
+        .deserialize = protobuf_deserialize,
+        .send = protobuf_send,
+        .receive = protobuf_receive
+};
+
+protocol_interface *protocol = &protobuf_protocol;
 
 // This is used for test-accuracy's -core alg testing only.
 // Output: a recommendation (-1 or 1..g_output_scale) for the passed-in element.
@@ -106,9 +228,9 @@ static void internal_singlerec(void *request)
 
         // Check if we're at the max person_id first.
         if (BE.num_people != message_in->personid)
-            num_rats = g_big_rat_index[message_in->personid + 1] - g_big_rat_index[message_in->personid];
+            num_rats = (int) (g_big_rat_index[message_in->personid + 1] - g_big_rat_index[message_in->personid]);
         else
-            num_rats = BE.num_ratings - g_big_rat_index[message_in->personid];
+            num_rats = (int) (BE.num_ratings - g_big_rat_index[message_in->personid]);
 
         // Limit what we care about to MAX_RATS_PER_PERSON.
         if (num_rats > MAX_RATS_PER_PERSON) num_rats = MAX_RATS_PER_PERSON;
@@ -155,24 +277,10 @@ static void internal_singlerec(void *request)
         popularity_t max_obscurity = 7;  // 1 is most popular, 7 is most obscure. 7 includes 1-6, 3 includes 1-2, etc.
         if (predictions(ratings, num_rats, recs, 1, target_id, max_obscurity))
         {
-            // Do something with recs, like print 'em out.
-            // syslog(LOG_INFO, "element: %d recvalue: %d.%.6d accum: %d.%.6d count:%d",
-            //       recs[0].elementid,
-            //       (int) recs[0].rating,
-            //       (int) ((recs[0].rating - (int) recs[0].rating) * 1000000),
-            //       (int) recs[0].rating_accum,
-            //       (int) ((recs[0].rating_accum - (int) recs[0].rating_accum) * 1000000),
-            //       recs[0].rating_count);
-
-            double current_pred_value = (double) recs[0].rating;
             int int_result;
-            double floaty;
 
             // Scale what we return from 32 to g_output_scale.
-            // orig current_pred_value = current_pred_value / (32 / g_output_scale);
-            floaty = 32.0 / (double) g_output_scale;
-            current_pred_value = (double) current_pred_value / floaty;
-            int_result = (int) bmh_round(current_pred_value);
+            int_result = (int) bmh_round((double) recs[0].rating / conv_to_output_scale);
             if (0 == int_result) int_result = 1;
             message_out.result = int_result;
         }// end if successful return from Predictions() call
@@ -239,12 +347,185 @@ static void internal_singlerec(void *request)
 
 } // end scenario: internal_singlerec
 
-
 //
 // Provide recommendations for a person.
 // input: *void which can be *FCGX_Request or *hum_request
 //
 static void recs(void *request)
+{
+    // input: (inside the protobuf message) userid
+    // output: the recs!
+    // 3 steps:
+    // 1. Get the ratings for the person.
+    // 2. Pass ratings to recgen core.
+    // 3. Construct & send protobuf output.
+
+    // What type are we really dealing with on input?
+    // external webserver means the input type is really *FCGX_Request
+    // internal webserver means the input type is really *hum_request
+
+    recs_request_t *deserialized_data = NULL;
+    void *serialized_data = NULL;
+    RecItem **recitems = NULL;
+
+#ifdef USE_FCGI
+    FCGX_Request *f_req;
+    f_req = (FCGX_Request *) request;
+#else
+    hum_request *h_req;
+    h_req = (hum_request *) request;
+#endif
+
+    size_t len = 0;
+    popularity_t *pop = pop_leash();
+
+    // Get the POSTed protobuf.
+    uint8_t post_data[FCGX_MAX_INPUT_STREAM_SIZE];
+    size_t post_len;
+
+#ifdef USE_FCGI
+    post_len = (size_t) FCGX_GetStr((char *) post_data,
+                                        sizeof(post_data),
+                                        f_req->in);
+#else
+    post_len = h_req->in->content_length;
+    memcpy((char *) post_data,
+           (char *) h_req->in->content,
+           post_len);
+#endif
+
+    // Now we are ready to decode the message.
+    int num_rats;
+
+    // 1. Get the ratings for the person.
+
+    rating_t *ratings = NULL;
+    prediction_t *recs = NULL;
+
+    // Deserialize the request.
+    int status = 0;
+    deserialized_data = protocol->deserialize(post_len, post_data, &status);
+
+    // Now we should have a structure of personid, popularity, num_ratings, array of possible elt/rating pairs
+    // if there was no error. Check status for errors.
+    if (status) goto finish_up;
+
+    // Check if we're at the max person_id first.
+    if (BE.num_people != deserialized_data->personid)
+        num_rats = (int) (g_big_rat_index[deserialized_data->personid + 1] - g_big_rat_index[deserialized_data->personid]);
+    else
+        num_rats = (int) (BE.num_ratings - g_big_rat_index[deserialized_data->personid]);
+
+    // Limit what we care about to MAX_RATS_PER_PERSON.
+    if (num_rats > MAX_RATS_PER_PERSON) num_rats = MAX_RATS_PER_PERSON;
+    int i;
+    if (0 == num_rats)
+    {
+        // No ratings for this person. Problem!
+        status = NO_RATINGS_FOR_USER;
+        goto finish_up;
+    }
+
+    // This is the list of ratings given by the current user.
+    ratings = (rating_t *) calloc(MAX_RATS_PER_PERSON + 1, sizeof(rating_t));
+
+    // Bail roughly if we can't get any mem.
+    if (!ratings)
+        exit(EXIT_NULLRATS);
+
+    // This is the list of recommendations for this user.
+    recs = (prediction_t *) calloc(MAX_PREDS_PER_PERSON, sizeof(prediction_t));
+
+    // Bail roughly if we can't get any mem.
+    if (!recs)
+        exit(EXIT_NULLPREDS);
+
+    // Get personid ratings.
+    for (i = 0; i < num_rats; i++)
+    {
+        ratings[i].elementid = g_big_rat[g_big_rat_index[deserialized_data->personid] + i].elementid;
+        ratings[i].rating =    g_big_rat[g_big_rat_index[deserialized_data->personid] + i].rating;
+    }
+
+    // 2. Pass ratings to recgen core.
+    len = 0;
+
+    if (predictions(ratings, num_rats, recs, RECS_BUCKET_SIZE, 0, deserialized_data->popularity))
+    {
+        // Begin protobuf encapsulation.
+        recitems = malloc(sizeof(RecItem *) * RECS_BUCKET_SIZE);
+        for (i = 0; i < RECS_BUCKET_SIZE; i++)
+        {
+            // add the rec data to the recitems array
+            recitems[i] = malloc(sizeof(RecItem));
+            rec_item__init(recitems[i]);
+            recitems[i]->elementid = (uint32_t) recs[i].elementid;
+
+            // Scale what we return from 32 to g_output_scale.
+            recitems[i]->rating = (int32_t) bmh_round((double) recs[i].rating / conv_to_output_scale);
+            if (0 == recitems[i]->rating) recitems[i]->rating = 1;
+            recitems[i]->popularity = pop[recs[i].elementid];
+        } // end for loop
+    } // end if successful return from Predictions() call
+    else
+    {
+        syslog(LOG_ERR,
+               "No predictions generated for user %d",
+               deserialized_data->personid);
+    }
+
+    status = STATUS_OK;
+
+    // Send the response to the client.
+    finish_up:
+
+    // Serialize the data
+    serialized_data = protocol->serialize(recitems, error_strings[status], &len);
+
+#ifdef USE_FCGI
+    bytes_to_fcgi = FCGX_PutStr((const char *) serialized_data, (int) len, f_req->out);
+    if (bytes_to_fcgi != (int) len)
+        syslog(LOG_ERR,
+               "ERROR: in recs, bytes_to_fcgi is %d while message_length is %lu",
+               bytes_to_fcgi, len);
+#else
+    h_req->out->content_length = len;
+    h_req->out->type_status = HUM_RESPONSE_OK;
+    strncpy((char *) h_req->out->content, (const char *) serialized_data, (int) len);
+#endif
+
+    // Clear out stuff for next user.
+    if (ratings) free(ratings);
+    if (recs) free(recs);
+
+    // free the deserialized_data
+    if (deserialized_data)
+    {
+        // free possible ratings list
+        if (deserialized_data->ratings_list) free(deserialized_data->ratings_list);
+        free(deserialized_data);
+    }
+
+    // Free serialized data if needed
+    if (serialized_data)
+        free(serialized_data);
+
+    // Free protobuf allocations.
+    if (recitems)
+    {
+        for (size_t j = 0; j < RECS_BUCKET_SIZE; j++)
+            free(recitems[j]);
+        free(recitems);
+    }
+} // end recs()
+
+//
+// Provide recommendations for a person.
+// input: *void which can be *FCGX_Request or *hum_request
+//
+// Orig below
+/*
+static void orig_recs(void *request)
 {
     // input: (inside the protobuf message) userid
     // output: the recs!
@@ -377,14 +658,8 @@ static void recs(void *request)
             rec_item__init(recitems[i]);
             recitems[i]->elementid = (uint32_t) recs[i].elementid;
 
-            double floaty;
-
             // Scale what we return from 32 to g_output_scale.
-            // orig recs[i].rating = recs[i].rating / (32 / g_output_scale);
-            floaty = 32.0 / (double) g_output_scale;
-            recs[i].rating = (float) recs[i].rating / floaty;
-
-            recitems[i]->rating = (int32_t) bmh_round((double) recs[i].rating);
+            recitems[i]->rating = (int32_t) bmh_round((double) recs[i].rating / conv_to_output_scale);
             if (0 == recitems[i]->rating) recitems[i]->rating = 1;
             recitems[i]->popularity = pop[recs[i].elementid];
         } // end for loop
@@ -437,7 +712,7 @@ static void recs(void *request)
     free(recitems);
 
 } // end recs()
-
+*/
 
 //
 // Ingest an event such as a rating, listen, purchase, click, etc.
@@ -949,7 +1224,7 @@ int main(int argc, char **argv)
 
     // Use getopt to help manage the options on the command line.
     int opt;
-    while ((opt = getopt(argc, argv, "cdb:")) != -1)
+    while ((opt = getopt(argc, argv, "cdb:j")) != -1)
     {
         switch (opt)
         {
@@ -972,12 +1247,18 @@ int main(int argc, char **argv)
                 }
                 g_output_scale = strtol(optarg, NULL, 10);
                 break;
+            case 'j':   // for "JSON protocol instead of protobuf"
+                printf("*** Using JSON data protocol instead of protobuf ***\n");
+                protocol = &json_protocol;
+                break;
             default:
                 printf("Don't understand. Check args. Need one of c, d, or b. \n");
                 fprintf(stderr, "Usage: %s [-c] [-d] [-b buckets]\n", argv[0]);
                 exit(EXIT_FAILURE);
         } // end switch
     } // end while
+
+    conv_to_output_scale = 32.0 / (double) g_output_scale;
 
     printf("*** Starting the live recommender with recs using a %d-bucket scale ***\n", g_output_scale);
     syslog(LOG_INFO, "*** Start recgen live recommender with recs using a %d-bucket scale ***", g_output_scale);

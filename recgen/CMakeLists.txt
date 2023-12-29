@@ -86,7 +86,7 @@ endif()
 # uncomment line below to link in the allocation sanitizer for memory debugging
 #target_link_options(${PROJECT_NAME} PUBLIC "-fsanitize=address")
 
-target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh)
+target_link_libraries(${PROJECT_NAME} m pthread protobuf-c yyjson bmh)
 
 # Check if FastCGI support is enabled.
 if(USE_FCGI)

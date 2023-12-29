@@ -46,12 +46,19 @@ message Recs
 {
     uint32 personid = 1;
     int32 popularity = 2;
+    int32 numratings = 3;
+    repeated RatingItem ratingslist = 4;
 }
 message RecItem
 {
     uint32 elementid = 1;
     int32 rating = 2;
     uint32 popularity = 3;
+}
+message RatingItem
+{
+    uint32 elementid = 1;
+    int32 rating = 2;
 }
 message RecsResponse
 {

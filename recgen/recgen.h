@@ -187,7 +187,6 @@ typedef struct
     exp_elt_t elementid;
     int rating_count;
     int rating;
-// orig    int16_t rating;
     uint32_t rating_accum;
 } prediction_t;
 
@@ -218,8 +217,38 @@ enum
     HUM_RESPONSE_ERROR = 11,
 };
 
+// This is the function pointer interface for communication protocols like JSON and protobuf.
+typedef struct
+{
+    void *(*serialize)(const void *data, const char *status, size_t *len);       // conversion
+    void *(*deserialize)(const size_t, const void *data, int *status);     // conversion
+    int (*send)(int sockfd, const void *data, size_t len);   // network op
+    int (*receive)(int sockfd, void *buf, size_t len);       // network op
+} protocol_interface;
 
-// Bemorehuman-internal globals
+typedef struct
+{
+    uint32_t elementid;
+    int32_t rating;
+} rating_item_t;
+
+typedef struct
+{
+    uint32_t personid;
+    int32_t popularity;
+    int32_t num_ratings;
+    rating_item_t *ratings_list;
+} recs_request_t;
+
+// error messages
+enum {STATUS_OK,
+      PROTOBUF_DECODE_FAILED_FOR_RECS,
+      PERSONID_FROM_CLIENT_INCORRECT,
+      NO_RATINGS_FOR_USER};
+
+extern const char *error_strings[];
+
+
 extern size_t g_num_confident_valences;
 extern uint8_t g_output_scale;
 
