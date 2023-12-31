@@ -41,6 +41,7 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <yyjson.h>
 
 //
 // Constants

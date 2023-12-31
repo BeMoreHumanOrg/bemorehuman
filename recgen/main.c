@@ -45,17 +45,126 @@ static bool wait_for_valence_reload = false;
 uint8_t g_output_scale = 5;
 static double conv_to_output_scale;
 
+// Take in prediction_t *, status string, and return json message and len of message
 static void *json_serialize(const void *data, const char *status, size_t *len)
 {
     // Convert data to JSON string
-    return (void *) NULL;
-}
+    // Create a mutable doc
+    yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
+    yyjson_mut_val *root = yyjson_mut_obj(doc);
+    yyjson_mut_doc_set_root(doc, root);
 
+    prediction_t *recs_in = (prediction_t *) data;
+    popularity_t *pop = pop_leash();
+    // Need to create an array of objects
+    // Create and return an empty mutable array, returns NULL on error.
+    yyjson_mut_val *recs_out = yyjson_mut_arr(doc);
+    yyjson_mut_val *el = yyjson_mut_strcpy(doc, "elementid");
+    yyjson_mut_val *ra = yyjson_mut_strcpy(doc, "rating");
+    yyjson_mut_val *po = yyjson_mut_strcpy(doc, "popularity");
+
+    // must iterate num_recs time over the recs_out
+    for (int i = 0; i < RECS_BUCKET_SIZE; i++)
+    {
+        // Creates and adds a new object at the end of the array.
+        // Returns the new object, or NULL on error.
+        yyjson_mut_val *new_obj = yyjson_mut_arr_add_obj(doc, recs_out);
+
+        // Adds a key-value pair at the end of the object.
+        // The key must be a string value.
+        // This function allows duplicated key in one object.
+        yyjson_mut_val *intval = yyjson_mut_uint(doc, recs_in[i].elementid);
+        yyjson_mut_obj_add(new_obj, el, intval);
+        intval = yyjson_mut_uint(doc, bmh_round((double) recs_in[i].rating / conv_to_output_scale));
+        if (yyjson_mut_get_uint(intval) == 0) intval = yyjson_mut_uint(doc, 1);
+
+        yyjson_mut_obj_add(new_obj, ra, intval);
+        intval = yyjson_mut_uint(doc, pop[recs_in[i].elementid]);
+        yyjson_mut_obj_add(new_obj, po, intval);
+    } // end loop over all individual recs
+
+    // Set root["status"]
+    yyjson_mut_obj_add_str(doc, root, "status", status);
+
+    // To string, minified
+    const char *json = yyjson_mut_write(doc, 0, len);
+    if (json)
+        printf("JSON out test: %s\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
+
+    // Free the doc
+    yyjson_mut_doc_free(doc);
+    return (void *) json;
+} // end jsone_serialize()
+
+
+// Take in POST JSON data and return a recs_request_t, status returned in status param
+// For now, either personid or ratings is active. personid from protobuf or ratings
+// from JSON. If both are there, prefer personid.
 static void *json_deserialize(const size_t len, const void *data, int *status)
 {
-    // Convert JSON string to data structure
-    return (void *) NULL;
-}
+    // create the return structure
+    recs_request_t *rr;
+    rr = calloc(1, sizeof(recs_request_t));
+
+    // All functions accept NULL input, and return NULL on error.
+    rr->personid = 0;
+
+    // Read JSON and get root
+    yyjson_doc *doc = yyjson_read(data, len, 0);
+    yyjson_val *root = yyjson_doc_get_root(doc);
+
+    // Get root["personid"]
+    yyjson_val *personid = yyjson_obj_get(root, "personid");
+    rr->personid = yyjson_get_int(personid);
+    printf("JSON test: personid: ---%d---\n", rr->personid);
+
+    // Get root["popularity"]
+    yyjson_val *pop = yyjson_obj_get(root, "popularity");
+    rr->popularity = yyjson_get_int(pop);
+    printf("JSON test: popularity: ---%d---\n", rr->popularity);
+
+    // Get root["ratingslist"], iterate over the array
+    yyjson_val *ratingslist = yyjson_obj_get(root, "ratingslist");
+
+    size_t idx, max, num_ratings;
+
+    // Returns the number of key-value pairs in this object.
+    // Returns 0 if input is not an object.
+    num_ratings = yyjson_arr_size(ratingslist);
+    yyjson_val *element;
+
+    // malloc a continuous block for all the ratings of type rating_item_t
+    rating_item_t *ratings = malloc(num_ratings * sizeof(rating_item_t));
+
+    // We have an array of objects
+    yyjson_arr_foreach(ratingslist, idx, max, element)
+    {
+        size_t idx2, max2;
+        yyjson_val *key, *val;
+        yyjson_obj_foreach(element, idx2, max2, key, val)
+        {
+            // assign the key, value into our return structure
+            // there's a new rating now, check the key.
+            const char *key_str = yyjson_get_str(key);
+            if (key_str[0] == 'e' || key_str[0] == 'E') // elementid
+            {
+                ratings[idx].elementid = yyjson_get_uint(val);
+                printf("JSON test: elementid---%d---: ---%d---\n", (int)idx, ratings[idx].elementid);
+            }
+            else
+            {
+                ratings[idx].rating = yyjson_get_int(val);
+                printf("JSON test: rating---%d---: ---%d---\n", (int)idx, ratings[idx].rating);
+            }
+        } // end iterating over each part of element
+    } // end iterating over each element in array
+
+    // Free the doc
+    yyjson_doc_free(doc);
+
+    *status = STATUS_OK;
+    return rr;
+} // end json_deserialize()
 
 // We may not need this one as it's already being done in hum or fcgi
 // The json or protobuf is in the POST data.
@@ -73,21 +182,41 @@ static int json_send(int sockfd, const void *data, const size_t len)
     return 0;
 }
 
-// Take in recitems **, status string, and return protobuf message and len of message
+// Take in prediction_t*, status string, and return protobuf message and len of message
 static void *protobuf_serialize(const void *data, const char *status, size_t *len)
 {
+    popularity_t *pop = pop_leash();
+    prediction_t *recs = (prediction_t *) data;
     RecsResponse pb_response = RECS_RESPONSE__INIT;              // declare the response
     pb_response.status = malloc(sizeof(char) * STATUS_LEN);
 
     // Use protobuf functions to serialize data
     pb_response.n_recslist = (size_t) RECS_BUCKET_SIZE;
-    pb_response.recslist = (RecItem **) data;
+    RecItem **recitems;
+    // iterate over the input and copy to target
+    // Begin protobuf encapsulation.
+    recitems = malloc(sizeof(RecItem *) * RECS_BUCKET_SIZE);
+    for (int i = 0; i < RECS_BUCKET_SIZE; i++)
+    {
+        // add the rec data to the recitems array
+        recitems[i] = malloc(sizeof(RecItem));
+        rec_item__init(recitems[i]);
+        recitems[i]->elementid = (uint32_t) recs[i].elementid;
+
+        // Scale what we return from 32 to g_output_scale.
+        recitems[i]->rating = (int32_t) bmh_round((double) recs[i].rating / conv_to_output_scale);
+        if (0 == recitems[i]->rating) recitems[i]->rating = 1;
+        recitems[i]->popularity = pop[recs[i].elementid];
+    } // end for loop
+
+    pb_response.recslist = recitems;
+
     strlcpy(pb_response.status, status, sizeof(pb_response.status));
     *len = recs_response__get_packed_size(&pb_response);
     void *buffer = malloc(*len);
     recs_response__pack(&pb_response, buffer);
 
-    // free pb_response
+    // free malloced status
     free(pb_response.status);
 
     return buffer;
@@ -377,7 +506,6 @@ static void recs(void *request)
 #endif
 
     size_t len = 0;
-    popularity_t *pop = pop_leash();
 
     // Get the POSTed protobuf.
     uint8_t post_data[FCGX_MAX_INPUT_STREAM_SIZE];
@@ -450,29 +578,8 @@ static void recs(void *request)
     // 2. Pass ratings to recgen core.
     len = 0;
 
-    if (predictions(ratings, num_rats, recs, RECS_BUCKET_SIZE, 0, deserialized_data->popularity))
-    {
-        // Begin protobuf encapsulation.
-        recitems = malloc(sizeof(RecItem *) * RECS_BUCKET_SIZE);
-        for (i = 0; i < RECS_BUCKET_SIZE; i++)
-        {
-            // add the rec data to the recitems array
-            recitems[i] = malloc(sizeof(RecItem));
-            rec_item__init(recitems[i]);
-            recitems[i]->elementid = (uint32_t) recs[i].elementid;
-
-            // Scale what we return from 32 to g_output_scale.
-            recitems[i]->rating = (int32_t) bmh_round((double) recs[i].rating / conv_to_output_scale);
-            if (0 == recitems[i]->rating) recitems[i]->rating = 1;
-            recitems[i]->popularity = pop[recs[i].elementid];
-        } // end for loop
-    } // end if successful return from Predictions() call
-    else
-    {
-        syslog(LOG_ERR,
-               "No predictions generated for user %d",
-               deserialized_data->personid);
-    }
+    if (!predictions(ratings, num_rats, recs, RECS_BUCKET_SIZE, 0, deserialized_data->popularity))
+        syslog(LOG_ERR, "No predictions generated for user %d", deserialized_data->personid);
 
     status = STATUS_OK;
 
@@ -480,7 +587,7 @@ static void recs(void *request)
     finish_up:
 
     // Serialize the data
-    serialized_data = protocol->serialize(recitems, error_strings[status], &len);
+    serialized_data = protocol->serialize(recs, error_strings[status], &len);
 
 #ifdef USE_FCGI
     bytes_to_fcgi = FCGX_PutStr((const char *) serialized_data, (int) len, f_req->out);
