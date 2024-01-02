@@ -495,7 +495,6 @@ static void recs(void *request)
 
     recs_request_t *deserialized_data = NULL;
     void *serialized_data = NULL;
-    RecItem **recitems = NULL;
 
 #ifdef USE_FCGI
     FCGX_Request *f_req;
@@ -609,7 +608,7 @@ static void recs(void *request)
     if (deserialized_data)
     {
         // free possible ratings list
-        if (deserialized_data->ratings_list) free(deserialized_data->ratings_list);
+        // Ratings list not there yet! if (deserialized_data->ratings_list) free(deserialized_data->ratings_list);
         free(deserialized_data);
     }
 
@@ -617,13 +616,6 @@ static void recs(void *request)
     if (serialized_data)
         free(serialized_data);
 
-    // Free protobuf allocations.
-    if (recitems)
-    {
-        for (size_t j = 0; j < RECS_BUCKET_SIZE; j++)
-            free(recitems[j]);
-        free(recitems);
-    }
 } // end recs()
 
 //
