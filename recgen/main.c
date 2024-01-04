@@ -149,12 +149,12 @@ static void *json_deserialize(const size_t len, const void *data, int *status)
             if (key_str[0] == 'e' || key_str[0] == 'E') // elementid
             {
                 ratings[idx].elementid = yyjson_get_uint(val);
-                printf("JSON test: elementid---%d---: ---%d---\n", (int)idx, ratings[idx].elementid);
+                printf("JSON test: elementid[%d]: ---%d---\n", (int)idx, ratings[idx].elementid);
             }
             else
             {
                 ratings[idx].rating = yyjson_get_int(val);
-                printf("JSON test: rating---%d---: ---%d---\n", (int)idx, ratings[idx].rating);
+                printf("JSON test: rating[%d]: ---%d---\n", (int)idx, ratings[idx].rating);
             }
         } // end iterating over each part of element
     } // end iterating over each element in array
@@ -164,7 +164,8 @@ static void *json_deserialize(const size_t len, const void *data, int *status)
 
     *status = STATUS_OK;
     return rr;
-} // end json_deserialize()
+} // end json_
+// deserialize()
 
 // We may not need this one as it's already being done in hum or fcgi
 // The json or protobuf is in the POST data.
@@ -535,13 +536,26 @@ static void recs(void *request)
 
     // Now we should have a structure of personid, popularity, num_ratings, array of possible elt/rating pairs
     // if there was no error. Check status for errors.
-    if (status) goto finish_up;
+    if (status)
+    {
+        printf("Problem from the deserializer! Bailing on this user.\n");
+        goto finish_up;
+    }
 
-    // Check if we're at the max person_id first.
-    if (BE.num_people != deserialized_data->personid)
-        num_rats = (int) (g_big_rat_index[deserialized_data->personid + 1] - g_big_rat_index[deserialized_data->personid]);
-    else
-        num_rats = (int) (BE.num_ratings - g_big_rat_index[deserialized_data->personid]);
+    // Are we in JSON mode? if so, num_rats will be desrialized_data->num_ratings and ratings are there too.
+    if (protocol == &json_protocol)
+    {
+        num_rats = deserialized_data->num_ratings;
+    }
+    else // We're in protobuf mode
+    {
+        // Check if we're at the max person_id first.
+        if (BE.num_people != deserialized_data->personid)
+            num_rats = (int) (g_big_rat_index[deserialized_data->personid + 1] -
+                              g_big_rat_index[deserialized_data->personid]);
+        else
+            num_rats = (int) (BE.num_ratings - g_big_rat_index[deserialized_data->personid]);
+    }
 
     // Limit what we care about to MAX_RATS_PER_PERSON.
     if (num_rats > MAX_RATS_PER_PERSON) num_rats = MAX_RATS_PER_PERSON;
@@ -554,7 +568,7 @@ static void recs(void *request)
     }
 
     // This is the list of ratings given by the current user.
-    ratings = (rating_t *) calloc(MAX_RATS_PER_PERSON + 1, sizeof(rating_t));
+    ratings = (rating_t *) calloc(num_rats, sizeof(rating_t));
 
     // Bail roughly if we can't get any mem.
     if (!ratings)
@@ -567,13 +581,23 @@ static void recs(void *request)
     if (!recs)
         exit(EXIT_NULLPREDS);
 
-    // Get personid ratings.
-    for (i = 0; i < num_rats; i++)
+    if (protocol == &json_protocol)
     {
-        ratings[i].elementid = g_big_rat[g_big_rat_index[deserialized_data->personid] + i].elementid;
-        ratings[i].rating =    g_big_rat[g_big_rat_index[deserialized_data->personid] + i].rating;
+        // Get this rando's ratings from the deserialized_data
+        for (i = 0; i < num_rats; i++)
+        {
+            ratings[i].elementid = deserialized_data->ratings_list[i].elementid;
+            ratings[i].rating = (short) deserialized_data->ratings_list[i].rating;
+        }
     }
-
+    else
+    {
+        // Get personid's ratings.
+        for (i = 0; i < num_rats; i++) {
+            ratings[i].elementid = g_big_rat[g_big_rat_index[deserialized_data->personid] + i].elementid;
+            ratings[i].rating = g_big_rat[g_big_rat_index[deserialized_data->personid] + i].rating;
+        }
+    }
     // 2. Pass ratings to recgen core.
     len = 0;
 
@@ -608,7 +632,8 @@ static void recs(void *request)
     if (deserialized_data)
     {
         // free possible ratings list
-        // Ratings list not there yet! if (deserialized_data->ratings_list) free(deserialized_data->ratings_list);
+        if (protocol == &json_protocol && deserialized_data->ratings_list)
+            free(deserialized_data->ratings_list);
         free(deserialized_data);
     }
 
