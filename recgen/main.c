@@ -588,11 +588,19 @@ static void recs(void *request)
 
     if (protocol == &json_protocol)
     {
-        // Get this rando's ratings from the deserialized_data
-        for (i = 0; i < num_rats; i++)
+        if (deserialized_data->ratings_list)
         {
-            ratings[i].elementid = deserialized_data->ratings_list[i].elementid;
-            ratings[i].rating = (short) deserialized_data->ratings_list[i].rating;
+            // Get this rando's ratings from the deserialized_data
+            for (i = 0; i < num_rats; i++) {
+                ratings[i].elementid = deserialized_data->ratings_list[i].elementid;
+                ratings[i].rating = (short) deserialized_data->ratings_list[i].rating;
+            }
+        }
+        else
+        {
+            printf("ERROR: ratings_list is empty. Bailing on this user.\n");
+            status = NO_RATINGS_FOR_USER;
+            goto finish_up;
         }
     }
     else
