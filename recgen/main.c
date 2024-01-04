@@ -126,8 +126,10 @@ static void *json_deserialize(const size_t len, const void *data, int *status)
     rr->popularity = yyjson_get_int(pop);
     printf("JSON test: popularity: ---%d---\n", rr->popularity);
 
-    // Get root["ratingslist"], iterate over the array
-    yyjson_val *ratingslist = yyjson_obj_get(root, "ratingslist");
+    // Getroot "params"
+    yyjson_val *paramslist = yyjson_obj_get(root, "params");
+
+    yyjson_val *ratingslist = yyjson_obj_get(paramslist, "ratingslist");
 
     size_t idx, max;
 
