@@ -61,15 +61,15 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
     // Create and add the recslist to root
     yyjson_mut_val *recs_out =  yyjson_mut_obj_add_arr(doc, root, "recslist");
 
-    yyjson_mut_val *el = yyjson_mut_strcpy(doc, "elementid");
-    yyjson_mut_val *ra = yyjson_mut_strcpy(doc, "rating");
+    yyjson_mut_val *el = yyjson_mut_strcpy(doc, "bmhid");
+    yyjson_mut_val *ra = yyjson_mut_strcpy(doc, "recvalue");
     yyjson_mut_val *po = yyjson_mut_strcpy(doc, "popularity");
 
     // check if we actually have recommendations
     if (data)
     {
         // must iterate num_recs time over the recs_out
-        for (int i = 0; i < RECS_BUCKET_SIZE; i++)
+        for (int i = 0; i < 5; i++)
         {
             // Creates and adds a new object at the end of the array.
             // Returns the new object, or NULL on error.
@@ -78,6 +78,7 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
             // Adds a key-value pair at the end of the object.
             // The key must be a string value.
             // This function allows duplicated key in one object.
+            printf("in json_serialize recs_in[%d].elementid is %d\n", i, recs_in[i].elementid);
             yyjson_mut_val *intval = yyjson_mut_uint(doc, recs_in[i].elementid);
             yyjson_mut_obj_add(new_obj, el, intval);
             intval = yyjson_mut_uint(doc, bmh_round((double) recs_in[i].rating / conv_to_output_scale));
