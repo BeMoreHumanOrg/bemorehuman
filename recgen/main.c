@@ -126,10 +126,11 @@ static void *json_deserialize(const size_t len, const void *data, int *status)
     rr->popularity = yyjson_get_int(pop);
     printf("JSON test: popularity: ---%d---\n", rr->popularity);
 
-    // Getroot "params"
+    // Getroot "params":w
     yyjson_val *paramslist = yyjson_obj_get(root, "params");
-
+    printf("paramslist is %p\n", paramslist);
     yyjson_val *ratingslist = yyjson_obj_get(paramslist, "ratingslist");
+    printf("ratingslist is %p\n", ratingslist);
 
     size_t idx, max;
 
