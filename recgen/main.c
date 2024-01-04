@@ -164,6 +164,8 @@ static void *json_deserialize(const size_t len, const void *data, int *status)
         } // end iterating over each part of element
     } // end iterating over each element in array
 
+    rr->ratings_list = ratings;
+
     // Free the doc
     yyjson_doc_free(doc);
 
