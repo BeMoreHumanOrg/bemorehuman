@@ -56,9 +56,11 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
 
     prediction_t *recs_in = (prediction_t *) data;
     popularity_t *pop = pop_leash();
+
     // Need to create an array of objects
-    // Create and return an empty mutable array, returns NULL on error.
-    yyjson_mut_val *recs_out = yyjson_mut_arr(doc);
+    // Create and add the recslist to root
+    yyjson_mut_val *recs_out =  yyjson_mut_obj_add_arr(doc, root, "recslist");
+
     yyjson_mut_val *el = yyjson_mut_strcpy(doc, "elementid");
     yyjson_mut_val *ra = yyjson_mut_strcpy(doc, "rating");
     yyjson_mut_val *po = yyjson_mut_strcpy(doc, "popularity");
@@ -85,7 +87,8 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
             intval = yyjson_mut_uint(doc, pop[recs_in[i].elementid]);
             yyjson_mut_obj_add(new_obj, po, intval);
         } // end loop over all individual recs
-    }
+    } // end if we have predictions
+
     // Set root["status"]
     yyjson_mut_obj_add_str(doc, root, "status", status);
 
