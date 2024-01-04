@@ -330,7 +330,7 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
         // clean up target_pop
         if (target_pop < LOWEST_POP_NUMBER || target_pop > HIGHEST_POP_NUMBER)
             target_pop = LOWEST_POP_NUMBER;
-        
+
         while (i < num_recs)
         {
             curr_elt = g_workingset[ws_walker].elementid;

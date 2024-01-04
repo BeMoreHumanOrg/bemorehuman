@@ -63,26 +63,29 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
     yyjson_mut_val *ra = yyjson_mut_strcpy(doc, "rating");
     yyjson_mut_val *po = yyjson_mut_strcpy(doc, "popularity");
 
-    // must iterate num_recs time over the recs_out
-    for (int i = 0; i < RECS_BUCKET_SIZE; i++)
+    // check if we actually have recommendations
+    if (data)
     {
-        // Creates and adds a new object at the end of the array.
-        // Returns the new object, or NULL on error.
-        yyjson_mut_val *new_obj = yyjson_mut_arr_add_obj(doc, recs_out);
+        // must iterate num_recs time over the recs_out
+        for (int i = 0; i < RECS_BUCKET_SIZE; i++)
+        {
+            // Creates and adds a new object at the end of the array.
+            // Returns the new object, or NULL on error.
+            yyjson_mut_val *new_obj = yyjson_mut_arr_add_obj(doc, recs_out);
 
-        // Adds a key-value pair at the end of the object.
-        // The key must be a string value.
-        // This function allows duplicated key in one object.
-        yyjson_mut_val *intval = yyjson_mut_uint(doc, recs_in[i].elementid);
-        yyjson_mut_obj_add(new_obj, el, intval);
-        intval = yyjson_mut_uint(doc, bmh_round((double) recs_in[i].rating / conv_to_output_scale));
-        if (yyjson_mut_get_uint(intval) == 0) intval = yyjson_mut_uint(doc, 1);
+            // Adds a key-value pair at the end of the object.
+            // The key must be a string value.
+            // This function allows duplicated key in one object.
+            yyjson_mut_val *intval = yyjson_mut_uint(doc, recs_in[i].elementid);
+            yyjson_mut_obj_add(new_obj, el, intval);
+            intval = yyjson_mut_uint(doc, bmh_round((double) recs_in[i].rating / conv_to_output_scale));
+            if (yyjson_mut_get_uint(intval) == 0) intval = yyjson_mut_uint(doc, 1);
 
-        yyjson_mut_obj_add(new_obj, ra, intval);
-        intval = yyjson_mut_uint(doc, pop[recs_in[i].elementid]);
-        yyjson_mut_obj_add(new_obj, po, intval);
-    } // end loop over all individual recs
-
+            yyjson_mut_obj_add(new_obj, ra, intval);
+            intval = yyjson_mut_uint(doc, pop[recs_in[i].elementid]);
+            yyjson_mut_obj_add(new_obj, po, intval);
+        } // end loop over all individual recs
+    }
     // Set root["status"]
     yyjson_mut_obj_add_str(doc, root, "status", status);
 
@@ -126,15 +129,16 @@ static void *json_deserialize(const size_t len, const void *data, int *status)
     // Get root["ratingslist"], iterate over the array
     yyjson_val *ratingslist = yyjson_obj_get(root, "ratingslist");
 
-    size_t idx, max, num_ratings;
+    size_t idx, max;
 
     // Returns the number of key-value pairs in this object.
     // Returns 0 if input is not an object.
-    num_ratings = yyjson_arr_size(ratingslist);
+    rr->num_ratings = (int) yyjson_arr_size(ratingslist);
+
     yyjson_val *element;
 
     // malloc a continuous block for all the ratings of type rating_item_t
-    rating_item_t *ratings = malloc(num_ratings * sizeof(rating_item_t));
+    rating_item_t *ratings = malloc(rr->num_ratings * sizeof(rating_item_t));
 
     // We have an array of objects
     yyjson_arr_foreach(ratingslist, idx, max, element)
@@ -542,7 +546,7 @@ static void recs(void *request)
         goto finish_up;
     }
 
-    // Are we in JSON mode? if so, num_rats will be desrialized_data->num_ratings and ratings are there too.
+    // Are we in JSON mode? if so, num_rats will be deserialized_data->num_ratings and ratings are there too.
     if (protocol == &json_protocol)
     {
         num_rats = deserialized_data->num_ratings;
