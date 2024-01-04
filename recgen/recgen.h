@@ -91,6 +91,9 @@
 #define LOG_HUM_STRING "hum"
 #define HUM_LOG_MASK LOG_INFO
 
+#define LOWEST_POP_NUMBER 1
+#define HIGHEST_POP_NUMBER 7
+
 // This expects a valence_xy_t for both args.
 #define ASSIGN(a,b) do { \
     a.x[0] = b.x[0]; \
