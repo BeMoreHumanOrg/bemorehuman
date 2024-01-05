@@ -118,12 +118,10 @@ static void *json_deserialize(const size_t len, const void *data, int *status)
     // Get root["personid"]
     yyjson_val *personid = yyjson_obj_get(root, "personid");
     rr->personid = yyjson_get_int(personid);
-    printf("JSON test: personid: ---%d---\n", rr->personid);
 
     // Get root["popularity"]
     yyjson_val *pop = yyjson_obj_get(root, "popularity");
     rr->popularity = yyjson_get_int(pop);
-    printf("JSON test: popularity: ---%d---\n", rr->popularity);
 
     // what is in data? ratingslist
 
@@ -153,12 +151,10 @@ static void *json_deserialize(const size_t len, const void *data, int *status)
             if (key_str[0] == 'e' || key_str[0] == 'E') // elementid
             {
                 ratings[idx].elementid = yyjson_get_uint(val);
-                printf("JSON test: elementid[%d]: ---%d---\n", (int)idx, ratings[idx].elementid);
             }
             else
             {
                 ratings[idx].rating = yyjson_get_int(val);
-                printf("JSON test: rating[%d]: ---%d---\n", (int)idx, ratings[idx].rating);
             }
         } // end iterating over each part of element
     } // end iterating over each element in array
@@ -625,7 +621,6 @@ static void recs(void *request)
 
     // Serialize the data
     serialized_data = protocol->serialize(recs, error_strings[status], &len);
-    printf("len is %zu", len);
 
 #ifdef USE_FCGI
     bytes_to_fcgi = FCGX_PutStr((const char *) serialized_data, (int) len, f_req->out);
