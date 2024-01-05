@@ -50,7 +50,7 @@ static const int num_recs_to_make = 5;
 static void *json_serialize(const void *data, const char *status, size_t *len)
 {
     prediction_t *recs_in = (prediction_t *) data;
-    char *json = (char *) malloc(num_recs_to_make * sizeof(prediction_t) + 100);
+    char *json = (char *) malloc(num_recs_to_make * sizeof(prediction_t) + 400);
     popularity_t *pop = pop_leash();
     char char_int[12];
 
@@ -58,7 +58,7 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
     // Need to create an array of objects
     if (data)
     {
-        strcpy(json, "\"recslist\":[");
+        strcat(json, "\"recslist\":[");
         for (int i = 0; i < num_recs_to_make; i++)
         {
             strcat(json, "{\"bmhid\":");
@@ -96,62 +96,7 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
 
     return (void *) json;
 
-    /* original broken yyjson impl
-    // Convert data to JSON string
-    // Create a mutable doc
-    yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
-    yyjson_mut_val *root = yyjson_mut_obj(doc);
-    yyjson_mut_doc_set_root(doc, root);
-
-    prediction_t *recs_in = (prediction_t *) data;
-    popularity_t *pop = pop_leash();
-
-    // Need to create an array of objects
-    // Create and add the recslist to root
-    yyjson_mut_val *recs_out =  yyjson_mut_obj_add_arr(doc, root, "recslist");
-
-    yyjson_mut_val *el = yyjson_mut_strcpy(doc, "bmhid");
-    yyjson_mut_val *ra = yyjson_mut_strcpy(doc, "recvalue");
-    yyjson_mut_val *po = yyjson_mut_strcpy(doc, "popularity");
-
-    // check if we actually have recommendations
-    if (data)
-    {
-        // must iterate num_recs times over the recs_out
-        for (int i = 0; i < 5; i++)
-        {
-            // Creates and adds a new object at the end of the array.
-            // Returns the new object, or NULL on error.
-            yyjson_mut_val *new_obj = yyjson_mut_arr_add_obj(doc, recs_out);
-
-            // Adds a key-value pair at the end of the object.
-            // The key must be a string value.
-            // This function allows duplicated key in one object.
-            printf("in json_serialize recs_in[%d].elementid is %d\n", i, recs_in[i].elementid);
-            yyjson_mut_val *intval = yyjson_mut_uint(doc, recs_in[i].elementid);
-            yyjson_mut_obj_add(new_obj, el, intval);
-            intval = yyjson_mut_uint(doc, bmh_round((double) recs_in[i].rating / conv_to_output_scale));
-            if (yyjson_mut_get_uint(intval) == 0) intval = yyjson_mut_uint(doc, 1);
-
-            yyjson_mut_obj_add(new_obj, ra, intval);
-            intval = yyjson_mut_uint(doc, pop[recs_in[i].elementid]);
-            yyjson_mut_obj_add(new_obj, po, intval);
-        } // end loop over all individual recs
-    } // end if we have predictions
-
-    // Set root["status"]
-    yyjson_mut_obj_add_str(doc, root, "status", status);
-
-    // To string, minified
-    const char *json = yyjson_mut_write(doc, 0, len);
-    if (json)
-        printf("JSON out test: %s\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
-
-    // Free the doc
-    yyjson_mut_doc_free(doc);
-    return (void *) json;
-    */
-} // end jsone_serialize()
+} // end json_serialize()
 
 
 // Take in POST JSON data and return a recs_request_t, status returned in status param
@@ -680,6 +625,7 @@ static void recs(void *request)
 
     // Serialize the data
     serialized_data = protocol->serialize(recs, error_strings[status], &len);
+    printf("len is %zu", len);
 
 #ifdef USE_FCGI
     bytes_to_fcgi = FCGX_PutStr((const char *) serialized_data, (int) len, f_req->out);
