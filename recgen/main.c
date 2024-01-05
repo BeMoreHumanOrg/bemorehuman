@@ -44,10 +44,59 @@ static event_t g_events_to_persist[EVENTS_TO_PERSIST_MAX];
 static bool wait_for_valence_reload = false;
 uint8_t g_output_scale = 5;
 static double conv_to_output_scale;
+static const int num_recs_to_make = 5;
 
 // Take in prediction_t *, status string, and return json message and len of message
 static void *json_serialize(const void *data, const char *status, size_t *len)
 {
+    prediction_t *recs_in = (prediction_t *) data;
+    char *json = (char *) malloc(num_recs_to_make * sizeof(prediction_t) + 100);
+    popularity_t *pop = pop_leash();
+    char char_int[12];
+
+    strcpy(json, "{");
+    // Need to create an array of objects
+    if (data)
+    {
+        strcpy(json, "\"recslist\":[");
+        for (int i = 0; i < num_recs_to_make; i++)
+        {
+            strcat(json, "{\"bmhid\":");
+            itoa((int) recs_in[i].elementid, char_int);
+            strcat(json, char_int);
+            strcat(json, ",\"recvalue\":");
+            int local_int = (int) bmh_round((double) recs_in[i].rating / conv_to_output_scale);
+            if (local_int == 0) local_int = 1;
+            itoa((int) local_int, char_int);
+            strcat(json, char_int);
+            strcat(json, ",\"popularity\":");
+            local_int = pop[recs_in[i].elementid];
+            itoa((int) local_int, char_int);
+            strcat(json, char_int);
+            strcat(json, "}");
+
+            if (i < (num_recs_to_make -1))
+            {
+                // add comma delimiter
+                strcat(json, ",");
+            }
+        } // end for loop across the recs to send
+        strcat(json, "],");
+    } // end if we have any recs to make
+
+    // add status
+    strcat(json, "\"status\":\"");
+    strcat(json, status);
+    strcat(json, "\"}");
+
+    if (json)
+        printf("JSON out test: %s\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
+
+    *len = strlen(json);
+
+    return (void *) json;
+
+    /* original broken yyjson impl
     // Convert data to JSON string
     // Create a mutable doc
     yyjson_mut_doc *doc = yyjson_mut_doc_new(NULL);
@@ -68,7 +117,7 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
     // check if we actually have recommendations
     if (data)
     {
-        // must iterate num_recs time over the recs_out
+        // must iterate num_recs times over the recs_out
         for (int i = 0; i < 5; i++)
         {
             // Creates and adds a new object at the end of the array.
@@ -101,6 +150,7 @@ static void *json_serialize(const void *data, const char *status, size_t *len)
     // Free the doc
     yyjson_mut_doc_free(doc);
     return (void *) json;
+    */
 } // end jsone_serialize()
 
 
@@ -662,200 +712,6 @@ static void recs(void *request)
 
 } // end recs()
 
-//
-// Provide recommendations for a person.
-// input: *void which can be *FCGX_Request or *hum_request
-//
-// Orig below
-/*
-static void orig_recs(void *request)
-{
-    // input: (inside the protobuf message) userid
-    // output: the recs!
-    // 3 steps:
-    // 1. Get the ratings for the person.
-    // 2. Pass ratings to recgen core.
-    // 3. Construct & send protobuf output.
-
-    // What type are we really dealing with on input?
-    // external webserver means the input type is really *FCGX_Request
-    // internal webserver means the input type is really *hum_request
-
-#ifdef USE_FCGI
-    FCGX_Request *f_req;
-    f_req = (FCGX_Request *) request;
-#else
-    hum_request *h_req;
-    h_req = (hum_request *) request;
-#endif
-
-    RecsResponse pb_response = RECS_RESPONSE__INIT;              // declare the response
-    void *buffer = NULL;                                         // this is the output buffer
-    size_t len = 0;
-    RecItem **recitems = NULL;
-    pb_response.status = malloc(sizeof(char) * STATUS_LEN);
-    popularity_t *pop = pop_leash();
-    int bytes_to_fcgi;
-
-    uint8_t post_data[FCGX_MAX_INPUT_STREAM_SIZE];
-
-    // Get the POSTed protobuf.
-    size_t post_len;
-
-#ifdef USE_FCGI
-    post_len = (size_t) FCGX_GetStr((char *) post_data,
-                                        sizeof(post_data),
-                                        f_req->in);
-#else
-    post_len = h_req->in->content_length;
-    memcpy((char *) post_data,
-           (char *) h_req->in->content,
-           post_len);
-#endif
-
-    // Now we are ready to decode the message.
-    uint32_t personid;
-    popularity_t popularity;
-    int num_rats;
-
-    // 1. Get the ratings for the person.
-
-    Recs *message_in;
-    message_in = recs__unpack(NULL, post_len, post_data);
-    // Check for errors
-    if (message_in == NULL)
-    {
-        syslog(LOG_ERR, "Protobuf decoding failed for recs() invocation.");
-        strlcpy(pb_response.status, "Protobuf decoding failed for recs() invocation.", sizeof(pb_response.status));
-        len = recs_response__get_packed_size(&pb_response);
-        buffer = malloc(len);
-        recs_response__pack(&pb_response, buffer);
-        goto finish_up;
-    }
-    // Does the passed-in personid not match any people we know about?
-    if (message_in->personid < 0 || message_in->personid > BE.num_people)
-    {
-        syslog(LOG_ERR, "personid from client is incorrect: ---%d---", message_in->personid);
-        sprintf(pb_response.status, "personid from client is incorrect: %d", message_in->personid);
-        len = recs_response__get_packed_size(&pb_response);
-        buffer = malloc(len);
-        recs_response__pack(&pb_response, buffer);
-        goto finish_up;
-    }
-    personid = message_in->personid;
-    popularity = (popularity_t) message_in->popularity;
-    recs__free_unpacked(message_in, NULL);
-
-    // Check if we're at the max person_id first.
-    if (BE.num_people != personid)
-        num_rats = g_big_rat_index[personid + 1] - g_big_rat_index[personid];
-    else
-        num_rats = BE.num_ratings - g_big_rat_index[personid];
-
-    // Limit what we care about to MAX_RATS_PER_PERSON.
-    if (num_rats > MAX_RATS_PER_PERSON) num_rats = MAX_RATS_PER_PERSON;
-
-    int i;
-
-    if (0 == num_rats)
-    {
-        // No ratings for this person. Problem!
-        strlcpy(pb_response.status, "no ratings for this user", sizeof(pb_response.status));
-        goto finish_up;
-    }
-
-    // We can generate recs for this person.
-    rating_t *ratings;
-    prediction_t *recs;
-
-    // This is the list of ratings given by the current user.
-    ratings = (rating_t *) calloc(MAX_RATS_PER_PERSON + 1, sizeof(rating_t));
-
-    // Bail roughly if we can't get any mem.
-    if (!ratings)
-        exit(EXIT_NULLRATS);
-
-    // This is the list of recommendations for this user.
-    recs = (prediction_t *) calloc(MAX_PREDS_PER_PERSON, sizeof(prediction_t));
-
-    // Bail roughly if we can't get any mem.
-    if (!recs)
-        exit(EXIT_NULLPREDS);
-
-    // Get personid ratings.
-    for (i = 0; i < num_rats; i++)
-    {
-        ratings[i].elementid = g_big_rat[g_big_rat_index[personid] + i].elementid;
-        ratings[i].rating =    g_big_rat[g_big_rat_index[personid] + i].rating;
-    }
-
-    // 2. Pass ratings to recgen core.
-    if (predictions(ratings, num_rats, recs, RECS_BUCKET_SIZE, 0, popularity))
-    {
-        // Begin protobuf encapsulation.
-        recitems = malloc(sizeof(RecItem *) * RECS_BUCKET_SIZE);
-        for (i = 0; i < RECS_BUCKET_SIZE; i++)
-        {
-            // add the rec data to the protobuf response
-            recitems[i] = malloc(sizeof(RecItem));
-            rec_item__init(recitems[i]);
-            recitems[i]->elementid = (uint32_t) recs[i].elementid;
-
-            // Scale what we return from 32 to g_output_scale.
-            recitems[i]->rating = (int32_t) bmh_round((double) recs[i].rating / conv_to_output_scale);
-            if (0 == recitems[i]->rating) recitems[i]->rating = 1;
-            recitems[i]->popularity = pop[recs[i].elementid];
-        } // end for loop
-
-        pb_response.n_recslist = (size_t) RECS_BUCKET_SIZE;
-        pb_response.recslist = recitems;
-        strlcpy(pb_response.status, "ok", sizeof(pb_response.status));
-        len = recs_response__get_packed_size(&pb_response);
-        buffer = malloc(len);
-        recs_response__pack(&pb_response, buffer);
-
-        // end protobuf encapsulation
-    } // end if successful return from Predictions() call
-    else
-    {
-        syslog(LOG_ERR,
-               "No predictions generated for user %d",
-               personid);
-    }
-
-    strlcpy(pb_response.status, "ok", sizeof(pb_response.status));
-
-    // Clear out stuff for next user.
-    free(ratings);
-    free(recs);
-
-    // Send the protobuf to the client.
-    finish_up:
-
-    bytes_to_fcgi = (int) len;
-
-#ifdef USE_FCGI
-    bytes_to_fcgi = FCGX_PutStr((const char *) buffer, (int) len, f_req->out);
-#else
-    h_req->out->content_length = len;
-    h_req->out->type_status = HUM_RESPONSE_OK;
-    strncpy((char *) h_req->out->content, (const char *) buffer, (int) len);
-#endif
-
-    if (bytes_to_fcgi != (int) len)
-        syslog(LOG_ERR,
-               "ERROR: in recs, bytes_to_fcgi is %d while message_length is %lu",
-               bytes_to_fcgi, len);
-
-    // Free protobuf allocations.
-    free(buffer);                          // Free the allocated serialized buffer
-    free(pb_response.status);
-    for (size_t j = 0; j < pb_response.n_recslist; j++)
-        free(recitems[j]);
-    free(recitems);
-
-} // end recs()
-*/
 
 //
 // Ingest an event such as a rating, listen, purchase, click, etc.
