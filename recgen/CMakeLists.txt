@@ -83,10 +83,20 @@ if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
    set_target_properties(hum PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
+# begin yyjson stuff
+
+# Add some options (optional)
+set(YYJSON_DISABLE_NON_STANDARD ON CACHE INTERNAL "")
+
+# Add the `yyjson` subdirectory
+add_subdirectory(vendor/yyjson)
+
+# end yyjson stuff
+
 # uncomment line below to link in the allocation sanitizer for memory debugging
 #target_link_options(${PROJECT_NAME} PUBLIC "-fsanitize=address")
 
-target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh)
+target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh yyjson)
 
 # Check if FastCGI support is enabled.
 if(USE_FCGI)

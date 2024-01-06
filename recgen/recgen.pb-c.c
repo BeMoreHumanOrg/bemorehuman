@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
+// SPDX-FileCopyrightText: 2023 Brian Calhoun <brian@bemorehuman.org>
 //
 // SPDX-License-Identifier: MIT
 //
@@ -210,6 +210,51 @@ void   rec_item__free_unpacked
   if(!message)
     return;
   assert(message->base.descriptor == &rec_item__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   rating_item__init
+                     (RatingItem         *message)
+{
+  static const RatingItem init_value = RATING_ITEM__INIT;
+  *message = init_value;
+}
+size_t rating_item__get_packed_size
+                     (const RatingItem *message)
+{
+  assert(message->base.descriptor == &rating_item__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t rating_item__pack
+                     (const RatingItem *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &rating_item__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t rating_item__pack_to_buffer
+                     (const RatingItem *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &rating_item__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+RatingItem *
+       rating_item__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (RatingItem *)
+     protobuf_c_message_unpack (&rating_item__descriptor,
+                                allocator, len, data);
+}
+void   rating_item__free_unpacked
+                     (RatingItem *message,
+                      ProtobufCAllocator *allocator)
+{
+  if(!message)
+    return;
+  assert(message->base.descriptor == &rating_item__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   recs_response__init
@@ -449,7 +494,7 @@ const ProtobufCMessageDescriptor internal_single_rec_response__descriptor =
   (ProtobufCMessageInit) internal_single_rec_response__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor recs__field_descriptors[2] =
+static const ProtobufCFieldDescriptor recs__field_descriptors[4] =
 {
   {
     "personid",
@@ -475,15 +520,41 @@ static const ProtobufCFieldDescriptor recs__field_descriptors[2] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "numratings",
+    3,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_INT32,
+    0,   /* quantifier_offset */
+    offsetof(Recs, numratings),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "ratingslist",
+    4,
+    PROTOBUF_C_LABEL_REPEATED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Recs, n_ratingslist),
+    offsetof(Recs, ratingslist),
+    &rating_item__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned recs__field_indices_by_name[] = {
+  2,   /* field[2] = numratings */
   0,   /* field[0] = personid */
   1,   /* field[1] = popularity */
+  3,   /* field[3] = ratingslist */
 };
 static const ProtobufCIntRange recs__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 2 }
+  { 0, 4 }
 };
 const ProtobufCMessageDescriptor recs__descriptor =
 {
@@ -493,7 +564,7 @@ const ProtobufCMessageDescriptor recs__descriptor =
   "Recs",
   "",
   sizeof(Recs),
-  2,
+  4,
   recs__field_descriptors,
   recs__field_indices_by_name,
   1,  recs__number_ranges,
@@ -562,6 +633,57 @@ const ProtobufCMessageDescriptor rec_item__descriptor =
   rec_item__field_indices_by_name,
   1,  rec_item__number_ranges,
   (ProtobufCMessageInit) rec_item__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor rating_item__field_descriptors[2] =
+{
+  {
+    "elementid",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(RatingItem, elementid),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "rating",
+    2,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_INT32,
+    0,   /* quantifier_offset */
+    offsetof(RatingItem, rating),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned rating_item__field_indices_by_name[] = {
+  0,   /* field[0] = elementid */
+  1,   /* field[1] = rating */
+};
+static const ProtobufCIntRange rating_item__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor rating_item__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "RatingItem",
+  "RatingItem",
+  "RatingItem",
+  "",
+  sizeof(RatingItem),
+  2,
+  rating_item__field_descriptors,
+  rating_item__field_indices_by_name,
+  1,  rating_item__number_ranges,
+  (ProtobufCMessageInit) rating_item__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor recs_response__field_descriptors[2] =

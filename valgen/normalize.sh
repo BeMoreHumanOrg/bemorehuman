@@ -62,5 +62,35 @@ rm normalized.out
 rm bg_k2_sort.out
 rm ratings_k2_sort.out
 
+# Now we want to create a file that has bmhid and movie name.
+
+# File names
+file1="bmhid-glid.out"
+file2="movies.csv"
+
+# Temporary file for output
+temp_file="temp_output.csv"
+: > "$temp_file"
+
+# Use awk to process the files
+awk -F, 'BEGIN { OFS="," }
+    # Load file1 into an array
+    NR==FNR { ids[$2]=$1; next }
+
+    # Process file2
+    { 
+        if ($1 in ids) {
+            # Replace the first column of file2 with the matching id from file1
+            $1 = ids[$1]
+            # Output the modified line
+            print
+        }
+    }
+' "$file1" "$file2" > "$temp_file"
+
+# Move the temporary file to replace file2 (if required)
+mv "$temp_file" movies.out
+
+
 
 

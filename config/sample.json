@@ -1,4 +1,5 @@
-// SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
+
+// SPDX-FileCopyrightText: 2023 Brian Calhoun <brian@bemorehuman.org>
 //
 // SPDX-License-Identifier: MIT
 //
@@ -22,62 +23,26 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 // This file is part of bemorehuman. See https://bemorehuman.org
-
 //
-// This is the recgen Protocol Buffer spec.
-//
-
-syntax = "proto3";
-
-// Internal Single Rec
-message InternalSingleRec
+// Here is a sample JSON request to the /recs endpoint
+// For now either personid (known to server) or ratingslist (rando) should be populated. If both are,
+// personid takes preference.
+// Why can't JSON have comments? Did it do something bad and now we can't have nice things?
 {
-    uint32 personid = 1;
-    uint32 elementid = 2;
+  "personid": 1001,
+  "popularity": 2,
+  "ratingslist": [
+    {
+      "elementid": 5133,
+      "rating": 4
+    },
+    {
+      "elementid": 772,
+      "rating": 5
+    },
+    {
+      "elementid": 9003,
+      "rating": 3
+    }
+  ]
 }
-message InternalSingleRecResponse
-{
-    int32 result = 1;
-    string status = 2;
-}
-
-// Recs
-message Recs
-{
-    uint32 personid = 1;
-    int32 popularity = 2;
-    int32 numratings = 3;
-    repeated RatingItem ratingslist = 4;
-}
-message RecItem
-{
-    uint32 elementid = 1;
-    int32 rating = 2;
-    uint32 popularity = 3;
-}
-message RatingItem
-{
-    uint32 elementid = 1;
-    int32 rating = 2;
-}
-message RecsResponse
-{
-    repeated RecItem recslist = 1;
-    string status = 2;
-}
-
-// Event
-// NOTE: in proto3 all fields are optional so no need to specify that
-//       the 'eventval' field below is optional
-message Event
-{
-    uint32 personid = 1;
-    uint32 elementid = 2;
-    uint32 eventval = 3;
-}
-message EventResponse
-{
-    int32 result = 1;
-    string status = 2;
-}
-

@@ -319,10 +319,11 @@ To prepare the Movielens data:
 
       ./convert_to_ints.sh                    # takes about 10 seconds
     
-- Copy the new Grouplens ratings data file ratings.out to the bemorehuman working directory. This dir
-is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf file. Default is /opt/bemorehuman
+- Copy the new Grouplens ratings data file ratings.out and movie file movies.csv to the bemorehuman working directory. 
+This dir is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf file. Default is /opt/bemorehuman
 
       cp ratings.out /opt/bemorehuman
+      cp movies.csv /opt/bemorehuman
 
 - Copy and run "normalize.sh" in /opt/bemorehuman. This script will ensure the movie ids are in sequence,
   which is important. This script also creates a little translation file so you can match original Grouplens
@@ -347,6 +348,9 @@ is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf file. Def
 - Given that you've followed Step 5 above, you invoke bemorehuman like so:
 
       ~/src/bemorehuman/bemorehuman -s 10 -t 20      # takes about 7 minutes to complete
+
+- If you're on Linux and bemorehuman complains about not finding libraries, you might need to run "sudo ldconfig" to
+enable the new libraries you just built to be visible to bemorehuman.
 
 - There are more ways to run the bemorehuman script (and its components) depending on your situation. See the
 bemorehuman script and source files for more details.

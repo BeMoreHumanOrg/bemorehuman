@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Brian Calhoun <brian@bemorehuman.org>
+// SPDX-FileCopyrightText: 2023 Brian Calhoun <brian@bemorehuman.org>
 //
 // SPDX-License-Identifier: MIT
 //
@@ -44,6 +44,7 @@ typedef struct InternalSingleRec InternalSingleRec;
 typedef struct InternalSingleRecResponse InternalSingleRecResponse;
 typedef struct Recs Recs;
 typedef struct RecItem RecItem;
+typedef struct RatingItem RatingItem;
 typedef struct RecsResponse RecsResponse;
 typedef struct Event Event;
 typedef struct EventResponse EventResponse;
@@ -87,10 +88,13 @@ struct  Recs
   ProtobufCMessage base;
   uint32_t personid;
   int32_t popularity;
+  int32_t numratings;
+  size_t n_ratingslist;
+  RatingItem **ratingslist;
 };
 #define RECS__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&recs__descriptor) \
-    , 0, 0 }
+    , 0, 0, 0, 0,NULL }
 
 
 struct  RecItem
@@ -103,6 +107,17 @@ struct  RecItem
 #define REC_ITEM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&rec_item__descriptor) \
     , 0, 0, 0 }
+
+
+struct  RatingItem
+{
+  ProtobufCMessage base;
+  uint32_t elementid;
+  int32_t rating;
+};
+#define RATING_ITEM__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&rating_item__descriptor) \
+    , 0, 0 }
 
 
 struct  RecsResponse
@@ -221,6 +236,25 @@ RecItem *
 void   rec_item__free_unpacked
                      (RecItem *message,
                       ProtobufCAllocator *allocator);
+/* RatingItem methods */
+void   rating_item__init
+                     (RatingItem         *message);
+size_t rating_item__get_packed_size
+                     (const RatingItem   *message);
+size_t rating_item__pack
+                     (const RatingItem   *message,
+                      uint8_t             *out);
+size_t rating_item__pack_to_buffer
+                     (const RatingItem   *message,
+                      ProtobufCBuffer     *buffer);
+RatingItem *
+       rating_item__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   rating_item__free_unpacked
+                     (RatingItem *message,
+                      ProtobufCAllocator *allocator);
 /* RecsResponse methods */
 void   recs_response__init
                      (RecsResponse         *message);
@@ -292,6 +326,9 @@ typedef void (*Recs_Closure)
 typedef void (*RecItem_Closure)
                  (const RecItem *message,
                   void *closure_data);
+typedef void (*RatingItem_Closure)
+                 (const RatingItem *message,
+                  void *closure_data);
 typedef void (*RecsResponse_Closure)
                  (const RecsResponse *message,
                   void *closure_data);
@@ -311,6 +348,7 @@ extern const ProtobufCMessageDescriptor internal_single_rec__descriptor;
 extern const ProtobufCMessageDescriptor internal_single_rec_response__descriptor;
 extern const ProtobufCMessageDescriptor recs__descriptor;
 extern const ProtobufCMessageDescriptor rec_item__descriptor;
+extern const ProtobufCMessageDescriptor rating_item__descriptor;
 extern const ProtobufCMessageDescriptor recs_response__descriptor;
 extern const ProtobufCMessageDescriptor event__descriptor;
 extern const ProtobufCMessageDescriptor event_response__descriptor;

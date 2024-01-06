@@ -1,0 +1,151 @@
+# SPDX-FileCopyrightText: 2023 Brian Calhoun <brian@bemorehuman.org>
+#
+# SPDX-License-Identifier: MIT
+#
+# MIT License
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+# of the Software, and to permit persons to whom the Software is furnished to do
+# so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+# IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+# This file is part of bemorehuman. See https://bemorehuman.org
+openapi: 3.0.0
+info:
+  title: Modified API
+  version: 1.0.0
+  description: RESTful API corresponding to the modified .proto file
+servers:
+  - url: http://example.com/api
+    description: Main API server
+
+paths:
+  /internalSingleRec:
+    post:
+      operationId: createInternalSingleRec
+      summary: Create an Internal Single Recommendation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                personid:
+                  type: integer
+                  format: uint32
+                elementid:
+                  type: integer
+                  format: uint32
+      responses:
+        '200':
+          description: Internal Single Recommendation Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: integer
+                    format: int32
+                  status:
+                    type: string
+
+  /recs:
+    post:
+      operationId: createRecs
+      summary: Create Recommendations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                personid:
+                  type: integer
+                  format: uint32
+                popularity:
+                  type: integer
+                  format: int32
+                ratingslist:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      elementid:
+                        type: integer
+                        format: uint32
+                      rating:
+                        type: integer
+                        format: int32
+      responses:
+        '200':
+          description: Recommendations Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recslist:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        elementid:
+                          type: integer
+                          format: uint32
+                        rating:
+                          type: integer
+                          format: int32
+                        popularity:
+                          type: integer
+                          format: uint32
+                  status:
+                    type: string
+
+  /event:
+    post:
+      operationId: createEvent
+      summary: Create an Event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                personid:
+                  type: integer
+                  format: uint32
+                elementid:
+                  type: integer
+                  format: uint32
+                eventval:
+                  type: integer
+                  format: uint32
+      responses:
+        '200':
+          description: Event Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: integer
+                    format: int32
+                  status:
+                    type: string
