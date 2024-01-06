@@ -1193,7 +1193,7 @@ int main(int argc, char **argv)
                 break;
             default:
                 printf("Don't understand. Check args. Need one of c, d, or b. \n");
-                fprintf(stderr, "Usage: %s [-c] [-d] [-b buckets]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-c] [-d] [-b buckets] [-j]\n", argv[0]);
                 exit(EXIT_FAILURE);
         } // end switch
     } // end while
