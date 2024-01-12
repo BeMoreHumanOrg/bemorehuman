@@ -41,6 +41,8 @@ set(MY_SOURCE_FILES
 
 set(SOURCE_FILES ${MY_SOURCE_FILES} ${OTHER_SOURCE_FILES})
 
+include_directories(vendor/yyjson/src)
+
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     include_directories(/opt/pkg/include)
     link_directories(/opt/pkg/lib)
