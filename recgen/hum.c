@@ -54,8 +54,7 @@ void reverse(char s[])
 
     for (i = 0, j = strlen(s)-1; i<j; i++, j--)
     {
-        unsigned int c;
-        c = (unsigned char) s[i];
+        const unsigned int c = (unsigned char) s[i];
         s[i] = s[j];
         s[j] = (char) c;
     }
@@ -64,11 +63,11 @@ void reverse(char s[])
 // itoa:  convert n to characters in s
 void itoa(int n, char s[])
 {
-    int i, sign;
+    int sign;
 
     if ((sign = n) < 0)  /* record sign */
         n = -n;          /* make n positive */
-    i = 0;
+    int i = 0;
     do
     {       /* generate digits in reverse order */
         s[i++] = n % 10 + '0';   /* get next digit */
@@ -111,13 +110,12 @@ int main(int argc, char *argv[])
     } // end while we have more command-line args to process
 
 
-    int server_fd, client_fd;
     struct sockaddr_in server_address, client_address;
     socklen_t client_address_size;
     char buffer[HUM_BUFFER_SIZE];
 
     // Create a socket
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    const int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0)
     {
         perror("Error creating socket");
@@ -150,7 +148,7 @@ int main(int argc, char *argv[])
     {
         // Accept an incoming connection
         client_address_size = sizeof(client_address);
-        client_fd = accept(server_fd, (struct sockaddr *)&client_address, &client_address_size);
+        const int client_fd = accept(server_fd, (struct sockaddr *) &client_address, &client_address_size);
         if (client_fd < 0)
         {
             perror("Error accepting incoming connection");
@@ -158,11 +156,9 @@ int main(int argc, char *argv[])
         }
 
         // Read the request from the client
-        int total = 0;
-        ssize_t bytes_read;
 
         // Read data from the socket into the buffer
-        bytes_read = read(client_fd, buffer, HUM_BUFFER_SIZE - 1);
+        ssize_t bytes_read = read(client_fd, buffer, HUM_BUFFER_SIZE - 1);
         if (bytes_read < 0)
         {
             perror("read client request from socket");
@@ -180,6 +176,7 @@ int main(int argc, char *argv[])
         // If the method is "POST", handle the request
         if (strcmp(method, "POST") == 0)
         {
+            int total;
             // Here is the general request message we can expect at this point:
 
             // POST /path HTTP/1.1\r\n
@@ -191,13 +188,10 @@ int main(int argc, char *argv[])
             // \r\n
             // post_data
 
-            // Read the POST data from the client. We want the Content-Length & data
-            char post_data[HUM_BUFFER_SIZE];
-            memset(post_data, 0, HUM_BUFFER_SIZE);
-
+            // Read the POST data from the client. We want the Content-Length & data.
             // Extract the HTTP Content-Length
             int content_length = 0;
-            char *p = strstr(buffer, "Content-Length:");
+            const char *p = strstr(buffer, "Content-Length:");
             if (p)
             {
                 p += strlen("Content-Length: ");
@@ -206,7 +200,7 @@ int main(int argc, char *argv[])
 
             // Find where the POST data starts and get rid of everything
             // else prior to that. Nice.
-            char *post_start = strstr(p, "\r\n\r\n") ;
+            const char *post_start = strstr(p, "\r\n\r\n") ;
             if (post_start)
             {
                 post_start += 4;  // skip over the end of header
@@ -221,7 +215,7 @@ int main(int argc, char *argv[])
             // This bit was from ChatGPT. I asked it for the fastest way to remove a substring from
             // the beginning of the string.
             //
-            size_t sub_len = post_start - buffer;
+            const size_t sub_len = post_start - buffer;
             memmove(buffer, post_start, bytes_read - sub_len + 1);
 
             // Read more POST data if we need to
@@ -242,7 +236,8 @@ int main(int argc, char *argv[])
             // and it hasn't all arrived yet - so that's a bad thing
             if (total >= HUM_BUFFER_SIZE - 1)
             {
-                perror("ERROR storing complete response from socket: out of space in buffer");
+                perror("ERROR storing complete response from socket: out of space in buffer. Malformed request?");
+                printf("Content length: %d, HUM_BUFFER_SIZE: %d\n", content_length, HUM_BUFFER_SIZE);
                 close(client_fd);
                 exit(-1);
             }
@@ -297,7 +292,7 @@ int main(int argc, char *argv[])
             // Read the response from the recgen server
             char response[1024] = "";
             char stderr_resp[1024] = "";
-            uint32_t res_content_length = 0;
+            uint32_t res_content_length;
 
             while (1)
             {
@@ -334,10 +329,10 @@ int main(int argc, char *argv[])
                 {
                     // Everything's ok and we need to send the response data to the client.
                     // Check for content-length > 0 first!
-                    bytes_read = read(sockfd, &record.content_length, sizeof(uint32_t));
+                    read(sockfd, &record.content_length, sizeof(uint32_t));
                     if (record.content_length > 0)
                     {
-                        bytes_read = read(sockfd, &record.content, record.content_length);
+                        read(sockfd, &record.content, record.content_length);
                         strncat(response, (char*) record.content, record.content_length);
                         res_content_length += record.content_length;
                     }
@@ -360,8 +355,7 @@ int main(int argc, char *argv[])
             sprintf(output, "%s%d\r\n\r\n%s", response_header, res_content_length, response);
             // Get the number of digits in res_content_length.
             int numdigits = 0;
-            uint32_t tmp_rcl;
-            tmp_rcl = res_content_length;
+            uint32_t tmp_rcl = res_content_length;
             while (tmp_rcl != 0)
             {
                 tmp_rcl /= 10;
@@ -377,9 +371,4 @@ int main(int argc, char *argv[])
         // Close the connection with the client
         close(client_fd);
     } // end while(1)
-
-    // Close the server socket
-    close(server_fd);
-
-    return 0;
 } // end main()

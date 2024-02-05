@@ -46,8 +46,7 @@ void create_workingset(size_t num_recs)
 static void init_workingset(size_t num_recs)
 {
     // Populate the workingset with empty predictions.
-    size_t i;
-    for (i = 0; i < num_recs; i++)
+    for (size_t i = 0; i < num_recs; i++)
     {
         g_workingset[i].rating_count = 0;
         g_workingset[i].elementid =  (exp_elt_t) i + 1;
@@ -68,8 +67,8 @@ static void init_workingset(size_t num_recs)
 //
 static int predcmp(const void *p1, const void *p2)
 {
-    prediction_t x = *(const prediction_t *) p1,
-                 y = *(const prediction_t *) p2;
+    const prediction_t x = *(const prediction_t *) p1;
+    const prediction_t y = *(const prediction_t *) p2;
 
     if (x.rating > y.rating)
     {
@@ -103,7 +102,6 @@ static void create_pcrs(const int8_t *tiny_slopes,
                         const double *tiny_slopes_inv,
                         const int8_t *tiny_offsets)
 {
-    double rating;
     int counter = 0;
     syslog(LOG_INFO, "....Inside create_pcrs....");
     for (uint8_t i = 0; counter < 256; i++, counter++)   // slope - offset combination
@@ -113,8 +111,8 @@ static void create_pcrs(const int8_t *tiny_slopes,
             // pcrx holds the rating of x = (y - b) / m
             // Note: We want to multiply, not divide at this point b/c divide is slower (this code runs a lot)
             // Note: It's important to get the scaling right for all variables. This code is correct!
-            rating = FLOAT_TO_SHORT_MULT * (tiny_slopes_inv[GET_HIGH_4_BITS(i)] * (FLOAT_TO_SHORT_MULT * j
-                    - tiny_offsets[GET_LOW_4_BITS(i)]));
+            double rating = FLOAT_TO_SHORT_MULT * (tiny_slopes_inv[GET_HIGH_4_BITS(i)] * (FLOAT_TO_SHORT_MULT * j
+                                                       - tiny_offsets[GET_LOW_4_BITS(i)]));
             rating = (rating < RATINGS_BOUND_LOWER) ? RATINGS_BOUND_LOWER
                     : (rating > RATINGS_BOUND_UPPER) ? RATINGS_BOUND_UPPER : rating;
             pcrx[i][j-1] = (int) bmh_round(rating);
@@ -143,8 +141,8 @@ static void tally(valence_t *bb,
         int rating;
         valence_t *bb_ptr;
         exp_elt_t prediction_to_make;
-        uint32_t user_rated = ur[i].elementid;
-        uint8_t user_rating = ur[i].rating;
+        const uint32_t user_rated = ur[i].elementid;
+        const uint8_t user_rating = ur[i].rating;
 
         // There are two similar but different sections of code below. They are separate for increased clarity. Merging would save a little
         // redundancy but add complexity in human understanding. Because this piece is the core of the recommender, let's err
@@ -153,10 +151,9 @@ static void tally(valence_t *bb,
         // First we need to find the (x,uR) valences where x goes from 1 to (uR - 1).
         // Iterate over, e.g., (1..232,233) given 233 as userRated passed in to Tally()
 
-        bb_ind_t  y_start = bind_seg_ds[user_rated];
-        exp_elt_t  user_rated_next;
+        const bb_ind_t  y_start = bind_seg_ds[user_rated];
 
-        user_rated_next = user_rated;
+        exp_elt_t user_rated_next = user_rated;
 
         while (-1 == bind_seg_ds[++user_rated_next])
             if (user_rated_next == (BE.num_elts - 1)) break;
@@ -184,7 +181,7 @@ static void tally(valence_t *bb,
 
         // Here we need to do the (uR, y) valences where y goes from uR+1 to NUM_ELTS.
         // Get the starting point of the fixed x value in the Beast.
-        bb_ind_t  x_start = bind_seg[user_rated];
+        const bb_ind_t  x_start = bind_seg[user_rated];
         user_rated_next = user_rated;
         while (-1 == bind_seg[++user_rated_next])
         {
@@ -219,8 +216,7 @@ static void tally(valence_t *bb,
 // Composite the prediction values.
 static void composite(uint64_t num_recs)
 {
-    int i;
-    for (i = 0; i < num_recs; i++)
+    for (int i = 0; i < num_recs; i++)
     {
         if (g_workingset[i].rating_count < MIN_VALENCES_FOR_PREDICTIONS)
         {
@@ -235,8 +231,7 @@ static void composite(uint64_t num_recs)
 // Put the passed-in eltid's entry at the head of the list.
 static void find_single(uint64_t num_recs, int eltid)
 {
-    int i;
-    for (i = 0; i < num_recs; i++)
+    for (int i = 0; i < num_recs; i++)
     {
         if ((exp_elt_t ) eltid == g_workingset[i].elementid)
         {
@@ -264,27 +259,26 @@ static void find_single(uint64_t num_recs, int eltid)
 // Use param target_pop for the situation when we want to get recs from a target popularity bucket (or more popular).
 bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_recs, int eltid, popularity_t target_pop)
 {
-    long long start, finish;
-    start = current_time_micros();
+    const long long start = current_time_micros();
 
     // Get a handle to the combined beast & bind leashes.
     valence_t *bb = bb_leash();
     
     // Get a handle to the bind index.
-    bb_ind_t  *bind_seg = bind_seg_leash();
+    const bb_ind_t  *bind_seg = bind_seg_leash();
     
     // Get a handle to the combined beast & bind leashes, DS version.
     valence_t *bb_ds = bb_ds_leash();
     
     // Get a handle to the bind index, DS version.
-    bb_ind_t  *bind_seg_ds = bind_seg_ds_leash();
+    const bb_ind_t  *bind_seg_ds = bind_seg_ds_leash();
     
     // Get a handle to the Popularity index.
-    popularity_t *pop = pop_leash();
+    const popularity_t *pop = pop_leash();
 
-    int8_t *tiny_slopes = tiny_slopes_leash();
-    double *tiny_slopes_inv = tiny_slopes_inv_leash();
-    int8_t *tiny_offsets = tiny_offsets_leash();
+    const int8_t *tiny_slopes = tiny_slopes_leash();
+    const double *tiny_slopes_inv = tiny_slopes_inv_leash();
+    const int8_t *tiny_offsets = tiny_offsets_leash();
 
     // If we haven't created the pre-computed ratings yet, do that. Only need to do this once per valence load, so
     // the creation should really be closer to that. It's here for now just see if it's worth it overall.
@@ -300,7 +294,7 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     }
     init_workingset(BE.num_elts);
 
-    int userid = ur[0].userid;
+    const int userid = ur[0].userid;
     int i;
 
     tally(bb, bind_seg, bb_ds, bind_seg_ds, rat_length, ur);
@@ -323,7 +317,6 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
         // Copy workingset to recs. Note that numRecs is small. The bit below
         // should work b/c we've just sorted WorkingSet by pred value
         int ws_walker = 0;
-        exp_elt_t curr_elt;
 
         i = 0;
 
@@ -333,7 +326,7 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
 
         while (i < num_recs)
         {
-            curr_elt = g_workingset[ws_walker].elementid;
+            const exp_elt_t curr_elt = g_workingset[ws_walker].elementid;
 
             // check to see if the rec to make is in target popularity bucket.
             if (pop[curr_elt] <= target_pop)
@@ -368,7 +361,7 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
         recs[i].rating = (int16_t) bmh_round(recs[i].rating / 10.0);
     } // end for loop
 
-    finish = current_time_micros();
+    const long long finish = current_time_micros();
     syslog(LOG_INFO, "Time to perform Prediction: %d microseconds.", (int) (finish - start));
 
     return (true);

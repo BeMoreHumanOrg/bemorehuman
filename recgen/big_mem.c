@@ -71,8 +71,8 @@ static int valence_cmp(const void* p1, const void* p2)
     ASSIGN(a, (*(const valence_xy_t *) p1));
     ASSIGN(b, (*(const valence_xy_t *) p2));
     
-    exp_elt_t exp_a_elt1 = 0, exp_a_elt2 = 0;
-    exp_elt_t exp_b_elt1 = 0, exp_b_elt2 = 0;
+    exp_elt_t exp_a_elt1, exp_a_elt2;
+    exp_elt_t exp_b_elt1, exp_b_elt2;
     EXPAND((a.x), exp_a_elt1);
     EXPAND((a.eltid), exp_a_elt2);
     EXPAND((b.x), exp_b_elt1);
@@ -103,7 +103,7 @@ static void quicksort_iterative(valence_xy_t array[], uint64_t len)
 {
     uint64_t left = 0, stack[MAX_STACK], pos = 0;
     uint64_t seed = (unsigned) rand(); // NOLINT because true randomness not necessary
-    valence_xy_t pivot, temp;
+    valence_xy_t pivot;
 
     for ( ; ; )
     {
@@ -114,9 +114,11 @@ static void quicksort_iterative(valence_xy_t array[], uint64_t len)
             seed = seed*69069+1;                         // next pseudorandom number
             stack[pos++] = len;                          // sort right part later
             for (uint64_t right = left-1; ; )
-            { // inner loop: partitioning
-                while (valence_cmp(&(array[++right]), &pivot) < 0);  // look for greater element
-                while (valence_cmp(&pivot, &(array[--len])) < 0);    // look for smaller element
+            {
+                valence_xy_t temp;
+                // inner loop: partitioning
+                while (valence_cmp(&(array[++right]), &pivot) < 0) {}  // look for greater element
+                while (valence_cmp(&pivot, &(array[--len])) < 0) {}    // look for smaller element
                 if (right >= len) break;                 // partition point found?
 
                 ASSIGN(temp, array[right]);
@@ -166,7 +168,7 @@ static void populate_ds()
     }
 
     // Walk the bb_ds_temp to create the g_bb_ds and set the g_bind_seg_ds properly.
-    exp_elt_t exp_id_2 = 0, prev_exp_id_2 = 0;
+    exp_elt_t exp_id_2, prev_exp_id_2 = 0;
     for (uint64_t i = 0; i < g_num_confident_valences; i++)
     {
         // Create the g_bb_ds.
@@ -206,8 +208,8 @@ static void populate_ds()
 //
 static int guycmp(const void *p1, const void *p2)
 {
-    guy_t x = *(const guy_t *) p1,
-          y = *(const guy_t *) p2;
+    const guy_t x = *(const guy_t *) p1;
+    const guy_t y = *(const guy_t *) p2;
 
     if (x.count > y.count)
     {
@@ -228,8 +230,8 @@ static int guycmp(const void *p1, const void *p2)
 
 static int guycmp2(const void *p1, const void *p2)
 {
-    guy_t x = *(const guy_t *) p1,
-          y = *(const guy_t *) p2;
+    const guy_t x = *(const guy_t *) p1;
+    const guy_t y = *(const guy_t *) p2;
 
     if (x.guy > y.guy)
     {
@@ -260,10 +262,9 @@ static void pull_from_beast_export()
     strlcat(file_to_open, "/", sizeof(file_to_open));
     strlcat(file_to_open, VALENCES_BB, sizeof(file_to_open));
     FILE *val_out = fopen(file_to_open,"r");
-    size_t num_valences_read = 0;
     assert(NULL != val_out);
 
-    num_valences_read = fread(g_bb, sizeof(valence_t), g_num_confident_valences, val_out);
+    size_t num_valences_read = fread(g_bb, sizeof(valence_t), g_num_confident_valences, val_out);
     syslog(LOG_INFO, "Number of valences read from bin file: %lu and we expected %lu to be read.",
            num_valences_read, (unsigned long) g_num_confident_valences);
     assert(num_valences_read == g_num_confident_valences);
@@ -533,10 +534,10 @@ static int pull_from_files(bool createDS)
     qsort(offsets, offset_count, sizeof(guy_t), guycmp2);
 
     // Begin Analysis
-    double next_boundary = 5;  // default value likely to be overriden
-    double next_boundary_inc = 5;  // default value likely to be overriden
+    double next_boundary;
+    double next_boundary_inc;
     double cume = 0;
-    int8_t bucket_value = 0;
+    int8_t bucket_value;
     double bucket_value_double = 0;
     int bucket_elt_total = 0;
     double bucket_percent_total = 0;
@@ -1034,8 +1035,7 @@ void export_beast()
     FILE *val_out = fopen(filename,"w");
 
     assert(NULL != val_out);
-    size_t num_valences_written = 0;
-    num_valences_written = fwrite(g_bb, sizeof(valence_t), g_valence_count, val_out);
+    size_t num_valences_written = fwrite(g_bb, sizeof(valence_t), g_valence_count, val_out);
     syslog(LOG_INFO, "Number of valences written to bin file: %lu and we expected %lu to be written.",
            num_valences_written, g_valence_count);
     fclose(val_out);
@@ -1072,8 +1072,7 @@ void export_ds()
     FILE *val_out = fopen(filename,"w");
 
     assert(NULL != val_out);
-    size_t num_valences_written = 0;
-    num_valences_written = fwrite(g_bb_ds, sizeof(valence_t), g_valence_count, val_out);
+    size_t num_valences_written = fwrite(g_bb_ds, sizeof(valence_t), g_valence_count, val_out);
     syslog(LOG_INFO, "Number of valences written to DS bin file: %lu and we expected %lu to be written.",
            num_valences_written, g_valence_count);
     fclose(val_out);
@@ -1109,12 +1108,11 @@ bool pop_load()
 
     char filename[strlen(BE.working_dir) + strlen(POP_OUTFILE) + 2];
 
-    FILE *fp;
     strlcpy(filename, BE.working_dir, sizeof(filename));
     strlcat(filename, "/", sizeof(filename));
     strlcat(filename, POP_OUTFILE, sizeof(filename));
 
-    fp = fopen(filename, "r");
+    FILE *fp = fopen(filename, "r");
     if (!fp)
     {
         syslog(LOG_ERR, "Can't open file %s. Exiting.", filename);
@@ -1124,7 +1122,6 @@ bool pop_load()
     char *line = NULL;
     size_t line_capacity = 0;
     ssize_t line_length;
-    popularity_t popularity;
     int i = 0;                   // remember the pop values start at index 1, not 0
     while ((line_length = getline(&line, &line_capacity, fp)) != -1)
     {
@@ -1136,7 +1133,7 @@ bool pop_load()
             line[--line_length] = '\0';
 
         // Convert line to a popularity_t.
-        popularity = (popularity_t) strtol(line, NULL, 10);
+        const popularity_t popularity = strtol(line, NULL, 10);
 
         // Put this Popularity in g_pop.
         g_pop[i] = popularity;
@@ -1165,12 +1162,11 @@ bool pop_load()
 static void load_so_compressed()
 {
     char filename[strlen(BE.valence_cache_dir) + strlen(SO_COMP_OUTFILE) + 2];
-    FILE *fp;
     strlcpy(filename, BE.valence_cache_dir, sizeof(filename));
     strlcat(filename, "/", sizeof(filename));
     strlcat(filename, SO_COMP_OUTFILE, sizeof(filename));
 
-    fp = fopen(filename, "r");
+    FILE *fp = fopen(filename, "r");
     if (!fp)
     {
         syslog(LOG_ERR, "Can't open file %s. Exiting.", filename);
@@ -1181,7 +1177,6 @@ static void load_so_compressed()
     size_t line_capacity = 0;
     ssize_t line_length;
     const char delimiter[4] = "\t";
-    char *token;
     bool do_slopes = false;
 
     while ((line_length = getline(&line, &line_capacity, fp)) != -1)
@@ -1197,7 +1192,7 @@ static void load_so_compressed()
         int token_number = 0;
 
         // Get the first token.
-        token = strtok(line, delimiter);
+        const char *token = strtok(line, delimiter);
 
         // Walk through other tokens.
         while(token != NULL)
@@ -1382,10 +1377,9 @@ bool big_rat_load()
     strlcat(file_to_open, "/", sizeof(file_to_open));
     strlcat(file_to_open, RATINGS_BR, sizeof(file_to_open));
     FILE *rat_out = fopen(file_to_open,"r");
-    size_t num_ratings_read = 0;
     assert(NULL != rat_out);
 
-    num_ratings_read = fread(g_big_rat, sizeof(rating_t), BE.num_ratings, rat_out);
+    size_t num_ratings_read = fread(g_big_rat, sizeof(rating_t), BE.num_ratings, rat_out);
     syslog(LOG_INFO, "Number of ratings read from bin file: %lu and we expected %lu to be read.",
            num_ratings_read, (unsigned long) BE.num_ratings);
     assert(num_ratings_read == BE.num_ratings);

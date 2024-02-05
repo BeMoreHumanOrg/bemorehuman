@@ -25,7 +25,7 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(valgen)
+project(valgen C)
 
 set(MY_SOURCE_FILES
         big_rat.c

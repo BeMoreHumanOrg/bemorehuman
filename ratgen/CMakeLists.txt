@@ -25,7 +25,7 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(ratgen)
+project(ratgen C)
 
 # MY_SOURCE_FILES are things I wrote and so I want to be stricter about compilation flags
 set(MY_SOURCE_FILES

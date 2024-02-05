@@ -162,7 +162,7 @@ Steps involved:
 3. Make working directory.
 4. Integrate with a webserver.
 5. (optional but recommended installation verification) Download and prep Grouplens movie rating dataset.
-6. (optional but recommended installation verification) Run a test-accuracy binary and compare the
+6. (optional but recommended installation verification) Run the test-accuracy binary and compare the
 results against a known working system.
 
 
@@ -184,28 +184,26 @@ dependencies. That said, I've tried to allow the flat files bemorehuman generate
 a database easily if you like.
 
 #### Build Dependencies
-
-- Protobuf-c:
-  - on Debian or Ubuntu, "sudo apt install libprotobuf-c-dev protobuf-c-compiler"
-  - on Void Linux, install protobuf-c-devel
-  - on NetBSD, install devel/protobuf-c
-  - OR on any OS from github.com/protobuf-c
-
-  If you don't have a recgen.proto in the bemorehuman/recgen dir (it should already be there)
-  - modify recgen.proto as needed then generate the recgen .c and .h (recgen.pb-c.c/.h) on command line:
-    protoc --c_out=. recgen.proto
 - for test-accuracy:
   - curl
   - openssl dev package
     - on Debian or Ubuntu, it's libssl-dev
     - on Void Linux, it's openssl-devel
-- (OPTIONAL) A webserver with fcgi capability. I like nginx for the simple fact it is commonly used and has a
-smart event model.
-- (IF USING YOUR OWN WEBSERVER) FastCGI library:
-  - on Debian or Ubuntu, install libfcgi-dev 
-  - on Void Linux, install fcgi-devel 
-  - on NetBSD, install www/fcgi
+- (OPTIONAL) A webserver with fcgi capability. I like nginx for the simple fact it is commonly used and has an
+excellent event model. Bemorehuman includes its own web server suitable for dev/test.
+  - FastCGI library (only if you need to integrate with your own web server):
+    - on Debian or Ubuntu, install libfcgi-dev 
+    - on Void Linux, install fcgi-devel 
+    - on NetBSD, install www/fcgi
+    - NOTE: please add -DUSE_FCGI=ON to the first cmake command below
+- (OPTIONAL) If you want to use protobuf instead of the default json: Protobuf-c:
+  - on Debian or Ubuntu, "sudo apt install libprotobuf-c-dev protobuf-c-compiler"
+  - on Void Linux, install protobuf-c-devel
+  - on NetBSD, install devel/protobuf-c
+  - OR on any OS from github.com/protobuf-c
+  - NOTE: please add -DUSE_PROTOBUF=ON to the first cmake command below
 
+ 
 #### Directory structure
 
 - bemorehuman
@@ -220,16 +218,16 @@ smart event model.
 
 Follow the regular cmake way of building:
 
-     cd ~/src/bemorehuman    # or whereever the bemorehuman source is on your machine)
+     cd ~/src/bemorehuman    # or wherever the bemorehuman source is on your machine
      mkdir build; cd build
-     
-     # if you are using the built-in hum HTTP server
-     cmake ..      
-     # if you are using your own HTTP server such as nginx  
-     cmake -DUSE_FCGI=ON ..  
-     
+     cmake ..
      cmake --build .   
      sudo make install       # root is used to install the include/library/binaries and create config file under /etc)
+    
+     # if you are using your own HTTP server such as nginx, add "-DUSE_FCGI=ON" to the first cmake above 
+     cmake -DUSE_FCGI=ON ..  
+     # if you want to use protobuf instead of the default json, add "-DUSE_PROTOBUF=ON" to the first cmake above
+     cmake -DUSE_PROTOBUF=ON ..  
 
 Binaries built:
 These are the binaries that get created automatically in the above cmake process:

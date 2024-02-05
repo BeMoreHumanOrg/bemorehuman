@@ -25,12 +25,20 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(recgen)
+project(recgen C)
 
-# OTHER_SOURCE_FILES are things I didn't write and so I want to relax a bit with compilation flags
-set(OTHER_SOURCE_FILES
-        recgen.pb-c.c
-        recgen.pb-c.h)
+# Add an option to control whether to build with FastCGI support.
+option(USE_FCGI "Build with FastCGI support" OFF)
+
+# Add an option to control whether to build with protobuf support.
+option(USE_PROTOBUF "Build with protobuf support" OFF)
+
+if (USE_PROTOBUF)
+    # OTHER_SOURCE_FILES are things I didn't write and so I want to relax a bit with compilation flags
+    set(OTHER_SOURCE_FILES
+            recgen.pb-c.c
+            recgen.pb-c.h)
+endif()
 
 # MY_SOURCE_FILES are things I wrote and so I want to be stricter about compilation flags
 set(MY_SOURCE_FILES
@@ -57,8 +65,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
     link_directories(/usr/pkg/lib /usr/local/lib)
 endif()
 
-# Add an option to control whether to build with FastCGI support.
-option(USE_FCGI "Build with FastCGI support" OFF)
+
 
 add_executable(recgen ${SOURCE_FILES})
 add_executable(hum hum.c)
@@ -68,7 +75,7 @@ add_executable(hum hum.c)
 # orig set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -std=c11 -Wno-vla  -Wno-reserved-id-macro -O3")
 set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -Wno-documentation-unknown-command ")
 
-# The "-Wno-declarartion-after-statement is b/c of a bug in clangd that gives a false warning when using C99 and above
+# The "-Wno-declaration-after-statement is b/c of a bug in clangd that gives a false warning when using C99 and above
 # clang: set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wno-reserved-id-macro -Weverything")
 set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall ")
 
@@ -98,7 +105,7 @@ add_subdirectory(vendor/yyjson)
 # uncomment line below to link in the allocation sanitizer for memory debugging
 #target_link_options(${PROJECT_NAME} PUBLIC "-fsanitize=address")
 
-target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh yyjson)
+target_link_libraries(${PROJECT_NAME} m pthread bmh yyjson)
 
 # Check if FastCGI support is enabled.
 if(USE_FCGI)
@@ -108,6 +115,16 @@ if(USE_FCGI)
     # Add a preprocessor definition to enable FastCGI-specific code
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_FCGI)
 endif()
+
+# Check if protobuf support is enabled.
+if(USE_PROTOBUF)
+    # Link the protobuf library and include the header files
+    target_link_libraries(${PROJECT_NAME} protobuf-c)
+
+    # Add a preprocessor definition to enable FastCGI-specific code
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_PROTOBUF)
+endif()
+
 
 
 target_link_libraries(hum bmh)

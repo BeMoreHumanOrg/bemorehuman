@@ -43,16 +43,19 @@
 #include <assert.h>
 #include <ctype.h>
 #include <unistd.h>
+#ifdef USE_PROTOBUF
 #include "../recgen/recgen.pb-c.h"
+#endif
 #include "bmh-config.h"
 #include <openssl/rand.h>
-
+#include <yyjson.h>
+#include <syslog.h>
 
 /*
  * Constants. These are the bits in the code that are likely to change with a change in what's being recommended.
  */
 #define RB_URL_LENGTH 2048
-#define RB_CURL_PB_PREFIX "curl -X POST --silent --data-binary @- -H 'Content-Type: application/octet-stream' -H 'accept: application/octet-stream' http://%s/bmh/%s < %s%s"
+#define RB_CURL_PB_PREFIX "curl -X POST --silent --data-binary @- -H 'Content-Type: application/%s' -H 'accept: application/%s' http://%s/bmh/%s < %s%s"
 #define DEV_SERVER_STRING "127.0.0.1:8888"
 #define STAGE_SERVER_STRING "fee.stage:4566"
 #define PROD_SERVER_STRING "foo.production:4567"
@@ -72,6 +75,15 @@
 
 #define FILE_TEMPLATE "/tmp/test-accuracy-XXXXXX"
 
+// These are the different requests we can make to the server.
+enum { SCENARIO_RECS, SCENARIO_EVENT, SCENARIO_SINGLEREC };
+
+// These are the different communciation protocols we can use to talk to the server.
+enum { PROTOCOL_PROTOBUF, PROTOCOL_JSON };
+
+// Define the range or popularity
+#define LOWEST_POP_NUMBER 1
+#define HIGHEST_POP_NUMBER 7
 
 /*
  * Typedefs
@@ -80,10 +92,48 @@
 typedef struct
 {
     int userid;
-    uint32_t  elementid;
+    uint32_t elementid;
     short rating;
     char padding[2];
 } rating_t;
+
+// These are same as in recgen.
+typedef struct
+{
+    uint32_t elementid;
+    int32_t rating;
+} rating_item_t;
+
+typedef struct
+{
+    uint32_t personid;
+    uint32_t elementid;
+    uint32_t eventval;
+} event_t;
+
+typedef struct
+{
+    uint32_t personid;
+    int32_t popularity;
+    int32_t num_ratings;
+    rating_item_t *ratings_list;
+} recs_request_t;
+
+typedef struct
+{
+    uint32_t elementid;
+    int rating_count;
+    int rating;
+    uint32_t rating_accum;
+} prediction_t;
+
+// This is the function pointer interface for communication protocols like JSON and protobuf.
+typedef struct
+{
+    void (*serialize)(const int scenario, const void *data, char **fname); // conversion
+    void *(*deserialize)(const int scenario, const void *data, char **status, const size_t len); // conversion
+} protocol_interface;
+
 
 //
 // Prototypes of things used outside the function's own source file
@@ -92,10 +142,11 @@ typedef struct
 // in accuracy.c
 // test stuff
 extern void TestAccuracy(void);
+
 extern unsigned int random_uint(unsigned int);
 
 // in helpers.c
-extern unsigned long call_bemorehuman_server(int, char *, char *);
+extern unsigned long call_bemorehuman_server(int, int, char *, char *);
 
 // globals
 extern int g_server_location;

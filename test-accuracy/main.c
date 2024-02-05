@@ -40,14 +40,14 @@ static bool g_test_event_call = false;
 //
 
 // Create the temp file that holds the passed-in protobuffer.
-static void make_tmpfile(char *buf, size_t len, char **pb_fname)
+static void make_tmpfile(const char *buf, size_t len, char **pb_fname)
 {
     // ok, write the protobuf to a file
     char proto_fname[128];
 
     // orig: sprintf(proto_fname, "/tmp/scenario_2.pb");
     strcpy(proto_fname, FILE_TEMPLATE);
-    int fd = mkstemp(proto_fname);
+    const int fd = mkstemp(proto_fname);
 
     if (fd == -1)
     {
@@ -63,8 +63,7 @@ static void make_tmpfile(char *buf, size_t len, char **pb_fname)
         fwrite(buf, len, 1, file);
         fflush(file);
         fclose(file);
-    }
-    else
+    } else
     {
         perror("Error opening temporary file for writing");
         exit(EXIT_FAILURE);
@@ -76,76 +75,388 @@ static void make_tmpfile(char *buf, size_t len, char **pb_fname)
 } // end make_tmpfile()
 
 
-// Make the scenario 2 (recs) file and send back the pb_fname to the caller.
-static void make_pb_scen_2_file(uint32_t userid, char **pb_fname)
+// Take in scenario, recs_request_t *, and return json fname
+static void json_serialize(const int scenario, const void *data, char **fname)
 {
-    // Do some protobuf-based calling here (try writing the protobuf to a file)
-    Recs message_out = RECS__INIT;
-    void *buf;                    // Buffer to store serialized data
-    size_t len;                    // Length of serialized data
+    char *json = NULL; // Buffer to store serialized data
+    size_t len; // Length of serialized data
+    switch (scenario)
+    {
+        case SCENARIO_RECS:
+        {
+            const recs_request_t *rr = (const recs_request_t *) data;
+            // 32 non-data bytes/rating_item_t roughly
+            json = (char *) malloc(32 * (unsigned) rr->num_ratings * sizeof(rating_item_t) + 400);
 
-    message_out.personid = userid;
-    message_out.popularity = 7;
+            strcpy(json, "{");
+            if (data)
+            {
+                // add personid
+                strcat(json, "\"personid\":");
+                char char_int[12];
+                itoa((signed) rr->personid, char_int);
+                strcat(json, char_int);
 
-    // Finish constructing the protobuf message.
-    len = recs__get_packed_size(&message_out); // This is calculated packing length
-    buf = malloc (len);                      // Allocate required serialized buffer length
-    recs__pack(&message_out, buf); // Pack the data
+                // add popularity
+                strcat(json, ",\"popularity\":");
+                itoa(rr->popularity, char_int);
+                strcat(json, char_int);
+
+                // add ratingslist array of objects
+                strcat(json, ",\"ratingslist\":[");
+                for (int i = 0; i < rr->num_ratings; i++)
+                {
+                    strcat(json, "{\"elementid\":");
+                    itoa((int) rr->ratings_list[i].elementid, char_int);
+                    strcat(json, char_int);
+                    strcat(json, ",\"rating\":");
+                    itoa((int) rr->ratings_list[i].rating, char_int);
+                    strcat(json, char_int);
+                    strcat(json, "}");
+
+                    if (i < (rr->num_ratings - 1))
+                    {
+                        // add comma delimiter
+                        strcat(json, ",");
+                    }
+                } // end for loop across the recs to send
+                strcat(json, "]");
+            } // end if we have any recs to make
+
+            strcat(json, "}");
+            // if (json)
+            //    printf("JSON out test: ---%s---\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
+            len = strlen(json);
+            break;
+        }
+        case SCENARIO_SINGLEREC:
+        {
+            const recs_request_t *rr = (const recs_request_t *) data;
+            json = (char *) malloc(sizeof(rating_item_t) + 400);
+
+            strcpy(json, "{");
+            if (data)
+            {
+                // add personid
+                strcat(json, "\"personid\":");
+                char char_int[12];
+                itoa((signed) rr->personid, char_int);
+                strcat(json, char_int);
+
+                // add eltid
+                strcat(json, ",\"elementid\":");
+                itoa((signed) rr->ratings_list->elementid, char_int);
+                strcat(json, char_int);
+            } // end if we have any ratings to send
+
+            strcat(json, "}");
+            // if (json)
+            //    printf("JSON out test: ---%s---\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
+            len = strlen(json);
+            break;
+        }
+        case SCENARIO_EVENT:
+        {
+            const event_t *er = data;
+            json = (char *) malloc(sizeof(event_t) + 400);
+
+            strcpy(json, "{");
+            if (data)
+            {
+                // add personid
+                strcat(json, "\"personid\":");
+                char char_int[12];
+                itoa((signed) er->personid, char_int);
+                strcat(json, char_int);
+
+                // add eltid
+                strcat(json, ",\"elementid\":");
+                itoa((signed) er->elementid, char_int);
+                strcat(json, char_int);
+
+                // add eventval
+                strcat(json, ",\"eventval\":");
+                itoa((signed) er->eventval, char_int);
+                strcat(json, char_int);
+            } // end if we have any event to send
+
+            strcat(json, "}");
+            // if (json)
+            //    printf("JSON out test: ---%s---\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
+            len = strlen(json);
+            break;
+        }
+        default: return;
+    } // end switch across request types
 
     // Create the tempfile.
-    make_tmpfile(buf, len, pb_fname);
+    make_tmpfile(json, len, fname);
+
+    // cleanup
+    if (json) free(json);
+} // end json_serialize()
+
+
+// Take in POST JSON data and return a prediction_t *, status returned in status param
+static void *json_deserialize(const int scenario, const void *data, char **status, const size_t len)
+{
+    prediction_t *predictions = NULL;
+    switch (scenario)
+    {
+        case SCENARIO_RECS:
+        {
+            // Read JSON and get root
+            yyjson_doc *doc = yyjson_read(data, len, 0);
+            yyjson_val *root = yyjson_doc_get_root(doc);
+
+            // what is in data? recslist
+            yyjson_val *recslist = yyjson_obj_get(root, "recslist");
+            size_t idx, max;
+
+            // Returns the number of key-value pairs in this object.
+            // Returns 0 if input is not an object.
+            const int num_recs = (int) yyjson_arr_size(recslist);
+
+            yyjson_val *element;
+
+            // malloc a continuous block for all the predictions
+            predictions = malloc((unsigned) num_recs * sizeof(prediction_t));
+
+            // We have an array of objects
+            yyjson_arr_foreach(recslist, idx, max, element)
+            {
+                size_t idx2, max2;
+                yyjson_val *key, *val;
+                yyjson_obj_foreach(element, idx2, max2, key, val)
+                {
+                    // assign the key, value into our return structure
+                    // there's a new prediction now, check the key.
+                    const char *key_str = yyjson_get_str(key);
+                    if (key_str[0] == 'b' || key_str[0] == 'B') // bmhid (elementid)
+                    {
+                        predictions[idx].elementid = (uint32_t) yyjson_get_uint(val);
+                    } else if (key_str[0] == 'r' || key_str[0] == 'R') // recvalue (rating)
+                    {
+                        predictions[idx].rating = yyjson_get_int(val);
+                    } else
+                    {
+                        // popularity
+                        predictions[idx].rating_count = yyjson_get_int(val); // NOTE: overload
+                    }
+                } // end iterating over each part of prediction
+            } // end iterating over each element in array
+
+            // Get root["status"]
+            yyjson_val *json_status = yyjson_obj_get(root, "status");
+            *status = malloc(strlen(yyjson_get_str(json_status)) + 1);
+            strcpy(*status, yyjson_get_str(json_status));
+
+            // Free the doc
+            yyjson_doc_free(doc);
+            break;
+        } // end case SCENARIO_RECS
+        case SCENARIO_SINGLEREC:
+        {
+            // Read JSON and get root
+            yyjson_doc *doc = yyjson_read(data, len, 0);
+            yyjson_val *root = yyjson_doc_get_root(doc);
+
+            // malloc a prediction to hold the result
+            predictions = malloc(sizeof(prediction_t));
+            yyjson_val *res = yyjson_obj_get(root, "result");
+            predictions->rating = yyjson_get_int(res);
+
+            // Get root["status"]
+            yyjson_val *json_status = yyjson_obj_get(root, "status");
+            *status = malloc(strlen(yyjson_get_str(json_status)) + 1);
+            strcpy(*status, yyjson_get_str(json_status));
+
+            // Free the doc
+            yyjson_doc_free(doc);
+            break;
+        } // end case SCENARIO_SINGLEREC
+        case SCENARIO_EVENT:
+        {
+            // Read JSON and get root
+            yyjson_doc *doc = yyjson_read(data, len, 0);
+            yyjson_val *root = yyjson_doc_get_root(doc);
+
+            // malloc a status to hold the result
+            // Get root["status"]
+            yyjson_val *json_status = yyjson_obj_get(root, "status");
+            *status = malloc(strlen(yyjson_get_str(json_status)) + 1);
+            strcpy(*status, yyjson_get_str(json_status));
+
+            // Free the doc
+            yyjson_doc_free(doc);
+            break;
+        } // end case SCENARIO_EVENT
+        default: return NULL;
+    }
+    return predictions;
+} // end json_deserialize()
+
+
+#ifdef USE_PROTOBUF
+// Make the scenario file and send back the pb_fname to the caller.
+static void protobuf_serialize(const int scenario, const void *data, char **fname)
+{
+    void *buf; // Buffer to store serialized data
+    size_t len; // Length of serialized data
+    switch (scenario)
+    {
+        case SCENARIO_RECS:
+        {
+            // Do some protobuf-based calling here (try writing the protobuf to a file)
+            const recs_request_t *rr = data;
+
+            Recs recs_out = RECS__INIT;
+            recs_out.personid = rr->personid;
+            recs_out.popularity = rr->popularity;
+
+            // Finish constructing the protobuf message.
+            len = recs__get_packed_size(&recs_out); // This is calculated packing length
+            buf = malloc(len); // Allocate required serialized buffer length
+            recs__pack(&recs_out, buf); // Pack the data
+            break;
+        }
+
+        case SCENARIO_EVENT:
+        {
+            // Do some protobuf-based calling here (try writing the protobuf to a file)
+            const event_t *er = data;
+
+            Event event_out = EVENT__INIT;
+            event_out.personid = er->personid;
+            event_out.elementid = er->elementid;
+            event_out.eventval = er->eventval; // just passing this along; could be 0
+
+            // Finish constructing the protobuf message.
+            len = event__get_packed_size(&event_out); // This is calculated packing length
+            buf = malloc(len); // Allocate required serialized buffer length
+            event__pack(&event_out, buf); // Pack the data
+            break;
+        }
+
+        case SCENARIO_SINGLEREC:
+        {
+            // Do some protobuf-based calling here (try writing the protobuf to a file)
+            // The single rec request is just user/eltid which is in a rating_t
+            const recs_request_t *rr = (const recs_request_t *) data;
+            InternalSingleRec singlerec_out = INTERNAL_SINGLE_REC__INIT;
+            singlerec_out.personid = (uint32_t) rr->personid;
+            singlerec_out.elementid = (uint32_t) rr->ratings_list->elementid;
+
+            // Finish constructing the protobuf message.
+            len = internal_single_rec__get_packed_size(&singlerec_out);
+            buf = malloc(len);
+            internal_single_rec__pack(&singlerec_out, buf);
+            break;
+        }
+        default: return;
+    } // end switch across request types
+
+    // Create the tempfile.
+    make_tmpfile(buf, len, fname);
 
     // cleanup
     free(buf);
-} // end scen 2 "recs"
+
+    return;
+} // end protobuf_serialize()
 
 
-static void make_pb_scen_3_file(uint32_t userid, uint32_t elementid, uint32_t eventid, char **pb_fname)
+// Take in protobuf message in data, len of msg, and return prediction_t*, status string
+static void *protobuf_deserialize(int scenario, const void *data, char **status, const size_t len)
 {
-    // Do some protobuf-based calling here (try writing the protobuf to a file)
-    Event message_out = EVENT__INIT;
-    void *buf;                    // Buffer to store serialized data
-    size_t len;                    // Length of serialized data
+    switch (scenario)
+    {
+        case SCENARIO_RECS:
+        {
+            // decode the message.
+            RecsResponse *recs_response = recs_response__unpack(NULL, len, data);
+            if (recs_response == NULL)
+            {
+                printf("ERROR: Decoding recs has just now failed. :( \n");
+                recs_response__free_unpacked(recs_response, NULL);
+                return NULL;
+            }
 
-    message_out.personid = userid;
-    message_out.elementid = elementid;
-    message_out.eventval = eventid;  // just passing this along; could be 0
+            const size_t status_len = strlen(recs_response->status);
+            assert(status_len > 0 && status_len < 1024);
+            *status = malloc(status_len + 1);
 
-    // Finish constructing the protobuf message.
-    len = event__get_packed_size(&message_out); // This is calculated packing length
-    buf = malloc (len);                      // Allocate required serialized buffer length
-    event__pack(&message_out, buf); // Pack the data
+            strcpy(*status, recs_response->status);
 
-    // Create the tempfile.
-    make_tmpfile(buf, len, pb_fname);
+            // Print the data contained in the message.
+            printf("recslist count is ---%d---\n", (int) recs_response->n_recslist);
+            // printf("status from recs_response is ---%s---\n", recs_response->status);
+            for (size_t i = 0; i < recs_response->n_recslist; i++)
+            {
+                printf("recslist at %zu element id is %d, rec value is %d, popularity is %d\n",
+                       i,
+                       recs_response->recslist[i]->elementid,
+                       recs_response->recslist[i]->rating,
+                       recs_response->recslist[i]->popularity);
+            }
+            recs_response__free_unpacked(recs_response, NULL);
+            return NULL;
+        }
 
-    // cleanup
-    free(buf);
-} // end scen 3 "event"
+        case SCENARIO_SINGLEREC:
+        {
+            // Now we are ready to decode the message.
+            InternalSingleRecResponse *message_in2 = internal_single_rec_response__unpack(NULL, len, data);
 
+            // Print the data contained in the message.
+            // printf("status from internal single rec response is ---%s---\n", message_in2->status);
+            assert(! strcmp(message_in2->status, "ok"));
+            // the response has the rec value in the "result" line
+            // load up the structure with the recs
 
-static void make_pb_scen_110_file(uint32_t userid, uint32_t elementid, char **pb_fname)
+            prediction_t *message_out = malloc(sizeof(prediction_t));
+            message_out->rating = message_in2->result;
+
+            // protobuf cleanup
+            internal_single_rec_response__free_unpacked(message_in2, NULL);
+            return message_out;
+        }
+
+        case SCENARIO_EVENT:
+        {
+            // Now we are ready to decode the message.
+            EventResponse *message_in2 = event_response__unpack(NULL, len, data);
+
+            const size_t status_len = strlen(message_in2->status);
+            assert(status_len > 0 && status_len < 1024);
+            *status = malloc(status_len + 1);
+            strcpy(*status, message_in2->status);
+
+             // protobuf cleanup
+            event_response__free_unpacked(message_in2, NULL);
+            return NULL;
+        }
+
+        default: return NULL;
+    } // end switch across scenario
+} // end protobuf_deserialize()
+#endif
+
+static protocol_interface json_protocol =
 {
-    // Do some protobuf-based calling here (try writing the protobuf to a file)
-    InternalSingleRec message_out = INTERNAL_SINGLE_REC__INIT;
-    void *buf;                    // Buffer to store serialized data
-    size_t len;                    // Length of serialized data
+    .serialize = json_serialize,
+    .deserialize = json_deserialize,
+};
 
-    message_out.personid = (uint32_t) userid;
-    message_out.elementid = (uint32_t ) elementid;
+#ifdef USE_PROTOBUF
+static protocol_interface protobuf_protocol =
+{
+    .serialize = protobuf_serialize,
+    .deserialize = protobuf_deserialize,
+};
+#endif
 
-    // Finish constructing the protobuf message.
-    len = internal_single_rec__get_packed_size(&message_out);
-    buf = malloc(len);
-    internal_single_rec__pack(&message_out, buf);
-
-    // Create the tempfile.
-    make_tmpfile(buf, len, pb_fname);
-
-    // cleanup
-    free(buf);
-} // end scen 110 "dynamic scan"
-
+static protocol_interface *protocol = &json_protocol;
 
 // Provide a random integer in [0, limit)
 unsigned int random_uint(unsigned int limit)
@@ -195,7 +506,7 @@ void TestAccuracy(void)
     // prepare to iterate over all users for whom we need to generate recs for (for steps 1-7)
     size_t numrows, num_held_back;
     unsigned int curelement_int;
-    int userid, currat, held_back[4096];
+    int userid, currat, held_back[4096], elts_to_send[4096], rats_to_send[4096];
     int ratings[MAX_PREDS_PER_PERSON], num_found = 0, total_held_back = 0;
     double diff_total;
 
@@ -229,7 +540,7 @@ void TestAccuracy(void)
     strlcpy(file_to_open, BE.working_dir, sizeof(file_to_open));
     strlcat(file_to_open, "/", sizeof(file_to_open));
     strlcat(file_to_open, RATINGS_BR, sizeof(file_to_open));
-    FILE *rat_out = fopen(file_to_open,"r");
+    FILE *rat_out = fopen(file_to_open, "r");
     size_t num_ratings_read, num_indices_read;
     assert(NULL != rat_out);
 
@@ -240,7 +551,7 @@ void TestAccuracy(void)
     assert(num_ratings_read == BE.num_ratings);
     // end loading big_rat
 
-    double floaty, floaty2;
+    double floaty = 32.0 / (double) g_ratings_scale;
     int num1 = 0, num2 = 0, num3 = 0, num4 = 0, num5 = 0, num6 = 0, num7 = 0,
             num8 = 0, num9 = 0, num10 = 0;
 
@@ -249,8 +560,7 @@ void TestAccuracy(void)
     {
         for (i = 0; i < BE.num_ratings; i++)
         {
-            floaty = 32.0 / (double) g_ratings_scale;
-            floaty2 = (double) g_big_rat[i].rating / floaty;
+            double floaty2 = (double) g_big_rat[i].rating / floaty;
             g_big_rat[i].rating = (short) bmh_round(floaty2);
             if (0 == g_big_rat[i].rating) g_big_rat[i].rating = 1;
 
@@ -267,12 +577,11 @@ void TestAccuracy(void)
         }
     }
 
-
     // Read the big_rat_index
     strlcpy(file_to_open, BE.working_dir, sizeof(file_to_open));
     strlcat(file_to_open, "/", sizeof(file_to_open));
     strlcat(file_to_open, RATINGS_BR_INDEX, sizeof(file_to_open));
-    rat_out = fopen(file_to_open,"r");
+    rat_out = fopen(file_to_open, "r");
     assert(NULL != rat_out);
 
     num_indices_read = fread(g_big_rat_index, sizeof(uint32_t), BE.num_people + 1, rat_out);
@@ -289,9 +598,11 @@ void TestAccuracy(void)
     if (g_group_test)
     {
         g_num_testing_people = 4;
-        userids[0] = 3071; userids[1] = 5218; userids[2] = 8099; userids[3] = 16986;
-    }
-    else  // We're testing for a bunch of randos.
+        userids[0] = 3071;
+        userids[1] = 5218;
+        userids[2] = 8099;
+        userids[3] = 16986;
+    } else // We're testing for a bunch of randos.
     {
         for (i = 0; i < g_num_testing_people; i++)
         {
@@ -311,67 +622,32 @@ void TestAccuracy(void)
 
         // Compute how much we have done and print it out.
         printf("*** %zu people have been processed out of %zu for this run. ***\n", userCounter, g_num_testing_people);
-        printf("*** %f percent of people have been processed for this run. ***\n", floor(100 * (double) userCounter / (double) g_num_testing_people));
+        printf("*** %f percent of people have been processed for this run. ***\n",
+               floor(100 * (double) userCounter / (double) g_num_testing_people));
 
         num_held_back = 0;
         numrows = 0;
-        for (i=0; i < num_ratings_read; i++)
+        for (i = 0; i < num_ratings_read; i++)
             if (g_big_rat[i].userid == userid)
                 numrows++;
 
-        // Get the ratings for a user from ratings flat file.
+        // Begin preparing recs request.
         uint8_t raw_response[RB_RAW_RESPONSE_SIZE_MAX] = {0};
         size_t len;
         char *pb_fname = NULL;
-	
-        //
-        // Scenario: recs
-        //
-        make_pb_scen_2_file((uint32_t) userids[userCounter], (char **) &pb_fname);
 
-        // need to clear the memory here for the pb_response, then pass in the pointer
-        memset(raw_response, 0, RB_RAW_RESPONSE_SIZE_MAX);
-        start = current_time_micros();
-        len = call_bemorehuman_server(2, pb_fname, (char *) raw_response);
-        finish = current_time_micros();
-        total_time += (finish - start);
-        printf("Time to get recs for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
-        unlink(pb_fname);
-        free(pb_fname);
-        if (0 == len)
-        {
-            printf("ERROR: length of response from recs call is 0. Check server logs.\n");
-            return;
-        }
-        
-        RecsResponse *recs_response;
+        recs_request_t rr;
+        // If protocol is protobuf, only need to send personid b/c recgen is aware of all ratings
+        // If protocol is JSON, need to send ratings b/c recgen won't know who this is
+        // and will need to send ratingslist array with elementid,rating.
 
-        // decode the message.
-        recs_response = recs_response__unpack(NULL, len, raw_response);
-        if (recs_response == NULL)
-        {
-            printf("ERROR: Decoding recs failed.\n");
-            recs_response__free_unpacked(recs_response, NULL);
-            return;
-        }
+        rr.personid = (uint32_t) userids[userCounter];
+        rr.popularity = HIGHEST_POP_NUMBER;
 
-        // Print the data contained in the message.
-        printf("recslist count is ---%d---\n", (int) recs_response->n_recslist);
-        // printf("status from recs_response is ---%s---\n", recs_response->status);
-        for (i = 0; i < recs_response->n_recslist; i++)
-        {
-           printf("recslist at %zu element id is %d, rec value is %d, popularity is %d\n",
-                   i,
-                   recs_response->recslist[i]->elementid,
-                   recs_response->recslist[i]->rating,
-                   recs_response->recslist[i]->popularity);
-        }
-        recs_response__free_unpacked(recs_response, NULL);
+        // For json, send errything we don't hold back. We'll need to send these later for the singlerec calls as well.
 
-        // begin pb-specific outputting of data to file
-        printf ("numrows for this user is %zu\n", numrows);
-
-        int send_counter = 0;
+        // begin holding back some
+        size_t send_counter = 0;
 
         // Iterate over the ratings for this user.
         // NOTE: old protobuf had a cap of 200
@@ -390,14 +666,58 @@ void TestAccuracy(void)
                 held_back[num_held_back] = (int) curelement_int;
                 num_held_back++;
                 total_held_back++;
-            }
-            else
+            } else
             {
+                // populate array with the elts to send
+                elts_to_send[send_counter] = (signed) curelement_int;
+                rats_to_send[send_counter] = currat;
                 send_counter++;
             }
         }
-        printf ("num_held_back for this user is %zu\n", num_held_back);
-        printf ("num sent as ratings is %d\n", send_counter);
+        printf("num_held_back for this user is %zu\n", num_held_back);
+        printf("num sent as ratings is %lu\n", send_counter);
+
+        // allocate & populate stucture to send
+        rating_item_t *ri = malloc((unsigned) send_counter * sizeof(rating_item_t));
+        for (i = 0; i < send_counter; i++)
+        {
+            ri[i].elementid = (uint32_t) elts_to_send[i];
+            ri[i].rating = rats_to_send[i];
+        }
+        rr.ratings_list = ri;
+        rr.num_ratings = (int) send_counter;
+        // end holding back some
+
+        //
+        // Scenario: recs
+        //
+        protocol->serialize(SCENARIO_RECS, &rr, (char **) &pb_fname);
+
+        // need to clear the memory here for the pb_response, then pass in the pointer
+        memset(raw_response, 0, RB_RAW_RESPONSE_SIZE_MAX);
+        start = current_time_micros();
+
+        // this is a send/receive part
+        if (protocol == &json_protocol)
+            len = call_bemorehuman_server(PROTOCOL_JSON, SCENARIO_RECS, pb_fname, (char *) raw_response);
+        else
+            len = call_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_RECS, pb_fname, (char *) raw_response);
+        finish = current_time_micros();
+        total_time += (finish - start);
+        printf("Time to get recs for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
+        unlink(pb_fname);
+        free(pb_fname);
+        free(ri);
+
+        if (0 == len)
+        {
+            printf("ERROR: length of response from recs call is 0. Check server logs.\n");
+            return;
+        }
+
+        // this is a deserialize part
+        char *status = NULL;
+        protocol->deserialize(SCENARIO_RECS, raw_response, &status, len);
 
         //
         // Scenario: /event
@@ -414,13 +734,20 @@ void TestAccuracy(void)
 
                 // NOTE: test-accuracy can't currently test for non-explicit events, so we must test for ratings.
                 size_t made_up_rating = i % (size_t) g_ratings_scale;
-                make_pb_scen_3_file((uint32_t) userids[userCounter],
-                                    (uint32_t) i + 1,
-                                    made_up_rating == 0 ? 1 : (unsigned int) made_up_rating,
-                                    (char **) &pb_fname);
+                event_t er;
+                er.elementid = (uint32_t) i + 1;
+                er.eventval = made_up_rating == 0 ? 1 : (unsigned int) made_up_rating;
+                er.personid = (uint32_t) userids[userCounter];
 
+                protocol->serialize(SCENARIO_EVENT, &er, &pb_fname);
+
+                // call the server
                 start = current_time_micros();
-                len = call_bemorehuman_server(3, pb_fname, (char *) raw_response);
+                if (protocol == &json_protocol)
+                    len = call_bemorehuman_server(PROTOCOL_JSON, SCENARIO_EVENT, pb_fname, (char *) raw_response);
+                else
+                    len = call_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_EVENT, pb_fname, (char *) raw_response);
+
                 finish = current_time_micros();
                 printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
                 unlink(pb_fname);
@@ -431,26 +758,18 @@ void TestAccuracy(void)
                     return;
                 }
 
-                EventResponse *message_in2;
-
-                // Now we are ready to decode the message.
-                message_in2 = event_response__unpack(NULL, len, raw_response);
+                protocol->deserialize(SCENARIO_EVENT, raw_response, &status, len);
 
                 // Must check for NULL
-                if (NULL == message_in2)
+                if (NULL == status)
                 {
-                    printf("ERROR: len from event call is %lu\n", len);
-                    printf("ERROR: response from event call is NULL. Exiting.\n");
+                    printf("ERROR: deserialized status response from event call is NULL. Exiting.\n");
                     exit(-1);
                 }
 
                 // Print the data contained in the message.
-                printf("status from event response is ---%s---\n", message_in2->status);
-                assert(! strcmp(message_in2->status, "ok"));
-                printf("result from event response is ---%d---\n", message_in2->result);
-
-                // protobuf cleanup
-                event_response__free_unpacked(message_in2, NULL);
+                printf("status from event response is ---%s---\n", status);
+                assert(! strcmp(status, "ok"));
             } // end for loop over num_held_back
         } // end if we want to test the /event call
 
@@ -465,6 +784,7 @@ void TestAccuracy(void)
         int recval;
         num_found = 0;
         diff_total = 0.0;
+        prediction_t *deserialized_data;
 
         // We need to call dynamic scan num_held_back times.
         for (i = 0; i < num_held_back; i++)
@@ -472,27 +792,29 @@ void TestAccuracy(void)
             // clear out raw_response
             memset(raw_response, 0, sizeof(raw_response));
 
-            make_pb_scen_110_file((uint32_t) userids[userCounter],
-                                (uint32_t) i + 1,
-                                (char **) &pb_fname);
+            rating_item_t *one_ri = malloc(sizeof(rating_item_t));
+            one_ri->elementid = (uint32_t) i + 1;
+            rr.personid = (uint32_t) userids[userCounter];
+            rr.ratings_list = one_ri;
+
+            protocol->serialize(SCENARIO_SINGLEREC, &rr, (char **) &pb_fname);
 
             // call the server
-            len = call_bemorehuman_server(DYNAMIC_SCAN, pb_fname, (char *) raw_response);
+            if (protocol == &json_protocol)
+                len = call_bemorehuman_server(PROTOCOL_JSON, SCENARIO_SINGLEREC, pb_fname, (char *) raw_response);
+            else
+                len = call_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_SINGLEREC, pb_fname, (char *) raw_response);
 
-            InternalSingleRecResponse *message_in2;
+            unlink(pb_fname);
+            free(pb_fname);
 
-            // Now we are ready to decode the message.
-            message_in2 = internal_single_rec_response__unpack(NULL, len, raw_response);
+            recval = 0;
+            deserialized_data = NULL;
+            deserialized_data = protocol->deserialize(SCENARIO_SINGLEREC, raw_response, &status, len);
 
-            // Print the data contained in the message.
-            // printf("status from internal single rec response is ---%s---\n", message_in2->status);
-            assert(! strcmp(message_in2->status, "ok"));
-            // printf("result from internal single rec response is ---%d---\n", message_in2->result);
+            // unpack deserialized_data to get the recval
+            if (deserialized_data) recval = deserialized_data->rating;
 
-            // the response has the rec value in the "result" line
-            // load up the structure with the recs
-
-            recval = message_in2->result;
             printf("For user %d holding back eltid %6d, rating %3d, recval of %3d\n",
                    userid, held_back[i], ratings[i], recval);
 
@@ -500,33 +822,28 @@ void TestAccuracy(void)
             if (recval > 0)
             {
                 num_found++;
-                diff_total += abs( ratings[i] - recval );
+                diff_total += abs(ratings[i] - recval);
 
-                // Make a random number btween 0 and 4 then add 1
-                random = random_uint((unsigned int) g_ratings_scale) + 1;
+                // Make a random number
+                random = random_uint((unsigned) g_ratings_scale) + 1;
 
                 random_avg += abs(ratings[i] - (int) random);
 
-                squared = pow((ratings[i] - recval), 2)  ;
+                squared = pow((ratings[i] - recval), 2);
                 sum_squares += squared;
                 num_sum_squares++;
 
                 // nrmse (also called coefficient of variation)
                 xobs += ratings[i];
             }
-            // protobuf cleanup
-            internal_single_rec_response__free_unpacked(message_in2, NULL);
-
-            unlink(pb_fname);
-            free(pb_fname);
-
         } // end for loop over num_held_back
 
         // 6) compare what we set aside in 3) with what's in 5) and spit those results out
         //     - "for this user we are on average 1.2 away for the 5's we held back (and store 1.2 for later)
 
         // what's the difference between num_5_found and num_held_back? this will tell us how many we found in the top max_preds_per_person
-        printf("^^^ The diff btwn num_held_back and num_found is %zu - %d = %lu\n", num_held_back, num_found, num_held_back - (unsigned long) num_found);
+        printf("^^^ The diff btwn num_held_back and num_found is %zu - %d = %lu\n", num_held_back, num_found,
+               num_held_back - (unsigned long) num_found);
 
         // print some summary info
         avg_diff[userCounter] = diff_total / num_found;
@@ -540,11 +857,12 @@ void TestAccuracy(void)
         }
     } // end iterating over the users
 
-    printf("\nTotal time is %lld micros (%lld millis) to generate a total of %lu strongest recs, or %lld micros per rec.\n",
-           total_time,
-           total_time / 1000,
-           20 * g_num_testing_people,
-           (unsigned long long) bmh_round(((double) total_time) / (double) (20 * g_num_testing_people)));
+    printf(
+        "\nTotal time is %lld micros (%lld millis) to generate a total of %lu strongest recs, or %lld micros per rec.\n",
+        total_time,
+        total_time / 1000,
+        20 * g_num_testing_people,
+        (unsigned long long) bmh_round(((double) total_time) / (double) (20 * g_num_testing_people)));
 
     printf("Overall timing for needle-in-haystack recs used to determine MAE was not calculated.\n");
     // 8) collate & print results: specifically, overall average distance from 5 for all the users we're looking at
@@ -557,8 +875,7 @@ void TestAccuracy(void)
             // We need to not take simple average but rather the weighted average
             overall_avg += avg_diff[i] * avg_diff_num_found[i];
             sum_num_found += avg_diff_num_found[i];
-        }
-        else
+        } else
         {
             // bad data! no elts found for this person
             g_num_testing_people--;
@@ -567,34 +884,35 @@ void TestAccuracy(void)
 
     overall_avg = overall_avg / (double) sum_num_found;
 
-    printf("\n**Across all %zu users we're evaluating, Mean Absolute Error (MAE) is %f, or %f percent for the ones we held back\n",
-           g_num_testing_people, overall_avg, (double) 100 * overall_avg / g_ratings_scale);
+    printf(
+        "\n**Across all %zu users we're evaluating, Mean Absolute Error (MAE) is %f, or %f percent for the ones we held back\n",
+        g_num_testing_people, overall_avg, (double) 100 * overall_avg / g_ratings_scale);
 
     random_avg = random_avg / total_held_back;
     printf("Across all %zu users we're evaluating, random recs have MAE of %f.\n", g_num_testing_people, random_avg);
 
 
     // compute the rmse!
-     if (0 != num_sum_squares)
-         rmse = sum_squares / num_sum_squares;
-     rmse = sqrt(rmse);
+    if (0 != num_sum_squares)
+        rmse = sum_squares / num_sum_squares;
+    rmse = sqrt(rmse);
 
     // compute the nrmse, normalized to the mean of the observed data
-     xobs = xobs / num_sum_squares;
-     nrmse = rmse / xobs;
+    xobs = xobs / num_sum_squares;
+    nrmse = rmse / xobs;
 
-    printf ("Overall RMSE for this run is %f\n", rmse);
-    printf ("Total held back: %d\n", total_held_back);
-    printf ("Num_found is: %d\n", num_found);
-    printf ("Overall NRMSE for this run is %f\n", nrmse);
-    printf ("g_num_testing_people is: %zu\n\n", g_num_testing_people);
+    printf("Overall RMSE for this run is %f\n", rmse);
+    printf("Total held back: %d\n", total_held_back);
+    printf("Num_found is: %d\n", num_found);
+    printf("Overall NRMSE for this run is %f\n", nrmse);
+    printf("g_num_testing_people is: %zu\n\n", g_num_testing_people);
 
     if (5 == g_ratings_scale)
         printf("num1 is %d, num2 is %d, num3 is %d, num4 is %d, num5 is %d\n", num1, num2, num3, num4, num5);
     else if (10 == g_ratings_scale)
-        printf("num1 is %d, num2 is %d, num3 is %d, num4 is %d, num5 is %d num6 is %d, num7 is %d, num8 is %d, num9 is %d, num10 is %d\n",
-               num1, num2, num3, num4, num5, num6, num7, num8, num9, num10);
-
+        printf(
+            "num1 is %d, num2 is %d, num3 is %d, num4 is %d, num5 is %d num6 is %d, num7 is %d, num8 is %d, num9 is %d, num10 is %d\n",
+            num1, num2, num3, num4, num5, num6, num7, num8, num9, num10);
 } // end testAccuracy()
 
 
@@ -606,56 +924,62 @@ int main(int argc, char **argv)
     // Load the config file.
     load_config_file();
 
+#ifdef USE_PROTOBUF
+    protocol = &protobuf_protocol;
+    printf("*** Using protobuf data protocol instead of default JSON ***\n");
+    syslog(LOG_INFO, "*** Setting test-accuracy to use protobuf instead of json to talk to the server.");
+#endif
     // Use getopt to help manage the options on the command line.
     int opt;
-    while ((opt = getopt(argc, argv, "gn:pr:s")) != -1)
+    while ((opt = getopt(argc, argv, "egn:pr:s")) != -1)
     {
         switch (opt)
         {
-        case 'g':                              // for "group test"
-            g_group_test = true;
-            printf("*** Testing specific hard-coded group... ***\n");
-            break;
-        case 'n':                              // for "number of users"
-            if (strtol(optarg, NULL, 10) < 1)
-            {
-                printf("Error: the argument for -n should be > 0 instead of %s. Exiting. ***\n", optarg);
+            case 'e': // for "testing /event call"
+                g_test_event_call = true;
+                printf("*** Testing the /event call. NOTE: This will send random ratings to the server. ***\n");
+                break;
+            case 'g': // for "group test"
+                g_group_test = true;
+                printf("*** Testing specific hard-coded group... ***\n");
+                break;
+
+            case 'n': // for "number of users"
+                if (strtol(optarg, NULL, 10) < 1)
+                {
+                    printf("Error: the argument for -n should be > 0 instead of %s. Exiting. ***\n", optarg);
+                    exit(EXIT_FAILURE);
+                }
+                g_num_testing_people = (size_t) strtol(optarg, NULL, 10);
+                printf("*** Starting test-accuracy with number of testing people: %zu ***\n", g_num_testing_people);
+                break;
+            case 'p': // for "prod"
+                g_server_location = TEST_LOC_PROD;
+                printf("*** Testing against prod... ***\n");
+                break;
+            case 'r': // for "rating-buckets"
+                if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > 32)
+                {
+                    printf("Error: the argument for -r should be > 1 and < 33 instead of %s. Exiting. ***\n", optarg);
+                    exit(EXIT_FAILURE);
+                }
+                g_ratings_scale = (int) strtol(optarg, NULL, 10);
+                printf("*** Starting test-accuracy with ratings using a %d-bucket scale ***\n", g_ratings_scale);
+                break;
+            case 's': // for "stage"
+                g_server_location = TEST_LOC_STAGE;
+                printf("*** Testing against stage... ***\n");
+                break;
+
+            default:
+                printf("Don't understand. Check args. Need one or more of e, g, j, n, p, r, or s. \n");
+                fprintf(stderr, "Usage: %s [-e | -g | -n num_testing_people | -p | -r ratings_buckets | -s]\n",
+                        argv[0]);
                 exit(EXIT_FAILURE);
-            }
-            g_num_testing_people = (size_t) strtol(optarg, NULL, 10);
-            printf("*** Starting test-accuracy with number of testing people: %zu ***\n", g_num_testing_people);
-            break;
-        case 'p':                              // for "prod"
-            g_server_location = TEST_LOC_PROD;
-            printf("*** Testing against prod... ***\n");
-            break;
-        case 'r':                              // for "rating-buckets"
-            if (strtol(optarg, NULL, 10) < 2 || strtol(optarg, NULL, 10) > 32)
-            {
-                printf("Error: the argument for -r should be > 1 and < 33 instead of %s. Exiting. ***\n", optarg);
-                exit(EXIT_FAILURE);
-            }
-            g_ratings_scale = (int) strtol(optarg, NULL, 10);
-            printf("*** Starting test-accuracy with ratings using a %d-bucket scale ***\n", g_ratings_scale);
-            break;
-        case 's':                              // for "stage"
-            g_server_location = TEST_LOC_STAGE;
-            printf("*** Testing against stage... ***\n");
-            break;
-        case 't':                              // for "test /event call"
-            g_test_event_call = true;
-            printf("*** Testing the /event call. NOTE: This will send random ratings to the server. ***\n");
-            break;
-        default:
-            printf("Don't understand. Check args. Need one or more of g, n, p, r, s, or t. \n");
-            fprintf(stderr, "Usage: %s [-g | -n num_testing_people | -p | -r ratings_buckets | -s | -t]\n", argv[0]);
-            exit(EXIT_FAILURE);
         } // end switch
     } // end while
 
     TestAccuracy();
 
     exit(EXIT_SUCCESS);
-
 } // end main ()
-

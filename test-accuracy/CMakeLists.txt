@@ -25,13 +25,18 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(test-accuracy)
+project(test-accuracy C)
 
-# OTHER_SOURCE_FILES are things I didn't write and so I want to relax a bit with compilation flags
-set(OTHER_SOURCE_FILES
-        ../recgen/recgen.pb-c.c
-        ../recgen/recgen.pb-c.h
-        )
+# Add an option to control whether to build with protobuf support.
+option(USE_PROTOBUF "Build with protobuf support" OFF)
+
+if (USE_PROTOBUF)
+    # OTHER_SOURCE_FILES are things I didn't write and so I want to relax a bit with compilation flags
+    set(OTHER_SOURCE_FILES
+            ../recgen/recgen.pb-c.c
+            ../recgen/recgen.pb-c.h
+            )
+endif()
 
 set(MY_SOURCE_FILES
         main.c
@@ -58,8 +63,6 @@ endif()
 add_executable(test-accuracy ${SOURCE_FILES})
 
 # set compile flags for my source file only
-# orig set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Werror -Wno-vla")
-# -O3 below is for valgrind debugging and for good performance
 set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-padded -Wno-vla  -Wno-declaration-after-statement -Wno-reserved-id-macro -Wno-documentation-unknown-command")
 
 if (CMAKE_C_COMPILER_ID MATCHES "Clang")
@@ -78,7 +81,16 @@ if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
    set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
-target_link_libraries(${PROJECT_NAME} m pthread protobuf-c bmh crypto)
+target_link_libraries(${PROJECT_NAME} m pthread bmh crypto yyjson)
+
+# Check if protobuf support is enabled.
+if(USE_PROTOBUF)
+    # Link the protobuf library and include the header files
+    target_link_libraries(${PROJECT_NAME} protobuf-c)
+
+    # Add a preprocessor definition to enable FastCGI-specific code
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_PROTOBUF)
+endif()
 
 install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION bin

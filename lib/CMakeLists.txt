@@ -24,7 +24,7 @@
 # This file is part of bemorehuman. See https://bemorehuman.org
 
 cmake_minimum_required(VERSION 3.10)
-project(bmh)
+project(bmh C)
 
 set(CMAKE_INSTALL_PREFIX "/usr")
 

@@ -35,13 +35,16 @@
 #include <fcgiapp.h>
 #endif
 #include <pthread.h>
+#ifdef USE_PROTOBUF
 #include "recgen.pb-c.h"
+#endif
 #include "bmh-config.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <errno.h>
 #include <sys/wait.h>
 #include <yyjson.h>
+#include <assert.h>
 
 //
 // Constants
@@ -85,7 +88,7 @@
 #define MAX_STACK 128              // stack size for max 2^(128/2) array elements when sorting
 #define EVENTS_TO_PERSIST_MAX 100   // how many incoming events to store in RAM before persisting to disk?
 
-#define HUM_BUFFER_SIZE 4096
+#define HUM_BUFFER_SIZE 8192
 #define HUM_DEFAULT_PORT 8888
 
 #define LOG_HUM_STRING "hum"
@@ -141,10 +144,10 @@ a += ((unsigned) b); \
 //
 // Typedefs
 //
-typedef uint8_t element_id_t[3];     // 24 bits for y (in the x,y pair -- x is in the bind_seg)
-typedef uint32_t exp_elt_t;          // convenient way to deal with element id's
-typedef int64_t bb_ind_t;            // type of each elt in the bb, -1 value means no value
-typedef struct                       // slope/offset compression helper type
+typedef uint8_t element_id_t[3]; // 24 bits for y (in the x,y pair -- x is in the bind_seg)
+typedef uint32_t exp_elt_t; // convenient way to deal with element id's
+typedef int64_t bb_ind_t; // type of each elt in the bb, -1 value means no value
+typedef struct // slope/offset compression helper type
 {
     int8_t guy;
     uint32_t count;
@@ -152,21 +155,23 @@ typedef struct                       // slope/offset compression helper type
 
 typedef struct
 {
-    element_id_t eltid;	      // half of the x,y pair. the other half is in the bind_seg. for bb, this is y. for bb_ds this is x.
-    uint8_t soindex;          // slope-offset index. hi fewbits are index to the slope, lower 4 bits are the index to the offset
+    element_id_t eltid;
+    // half of the x,y pair. the other half is in the bind_seg. for bb, this is y. for bb_ds this is x.
+    uint8_t soindex; // slope-offset index. hi fewbits are index to the slope, lower 4 bits are the index to the offset
 } valence_t;
 
 typedef struct
 {
-    element_id_t x;	          // half of the x,y pair. (x)
-    element_id_t eltid;	      // other half of the x,y pair. (y)
-    uint8_t soindex;          // slope-offset index. hi four bits are index to the slope, lower 4 bits are the index to the offset
+    element_id_t x; // half of the x,y pair. (x)
+    element_id_t eltid; // other half of the x,y pair. (y)
+    uint8_t soindex;
+    // slope-offset index. hi four bits are index to the slope, lower 4 bits are the index to the offset
 } valence_xy_t;
 
 typedef struct
 {
-    uint8_t fewbit;           // this is the few-bit representation of the value (3 bits for 8 values, 4 bits for 16 values)
-	int8_t value;
+    uint8_t fewbit; // this is the few-bit representation of the value (3 bits for 8 values, 4 bits for 16 values)
+    int8_t value;
 } fewbit_t;
 
 typedef uint8_t popularity_t; // range is 1-7 where 1 is very popular and 7 is obscure
@@ -174,7 +179,7 @@ typedef uint8_t popularity_t; // range is 1-7 where 1 is very popular and 7 is o
 typedef struct
 {
     int userid;
-    exp_elt_t  elementid;
+    exp_elt_t elementid;
     short rating;
     char padding[2];
 } rating_t;
@@ -202,7 +207,7 @@ typedef struct
 // Hum server structures
 typedef struct
 {
-    uint8_t type_status;     // This is either the request type or return status.
+    uint8_t type_status; // This is either the request type or return status.
     uint32_t content_length;
     uint8_t content[HUM_BUFFER_SIZE];
 } hum_record;
@@ -221,13 +226,17 @@ enum
     HUM_RESPONSE_ERROR = 11,
 };
 
+// These are the different requests we can make to the server.
+enum { SCENARIO_RECS, SCENARIO_EVENT, SCENARIO_SINGLEREC };
+
+// These are the different communciation protocols we can use to talk to the server.
+enum { PROTOCOL_PROTOBUF, PROTOCOL_JSON };
+
 // This is the function pointer interface for communication protocols like JSON and protobuf.
 typedef struct
 {
-    void *(*serialize)(const void *data, const char *status, size_t *len);       // conversion
-    void *(*deserialize)(const size_t, const void *data, int *status);     // conversion
-    int (*send)(int sockfd, const void *data, size_t len);   // network op
-    int (*receive)(int sockfd, void *buf, size_t len);       // network op
+    void *(*serialize)(const int scenario, const void *data, const char *status, size_t *len); // conversion
+    void *(*deserialize)(const int scenario, const size_t, const void *data, int *status); // conversion
 } protocol_interface;
 
 typedef struct
@@ -245,10 +254,16 @@ typedef struct
 } recs_request_t;
 
 // error messages
-enum {STATUS_OK,
-      PROTOBUF_DECODE_FAILED_FOR_RECS,
-      PERSONID_FROM_CLIENT_INCORRECT,
-      NO_RATINGS_FOR_USER};
+enum
+{
+    STATUS_OK,
+    PROTOBUF_DECODE_FAILED_FOR_RECS,
+    PROTOBUF_DECODE_FAILED_FOR_SINGLEREC,
+    PROTOBUF_DECODE_FAILED_FOR_EVENT,
+    PERSONID_FROM_CLIENT_INCORRECT,
+    ELEMENTID_FROM_CLIENT_INCORRECT,
+    NO_RATINGS_FOR_USER
+};
 
 extern const char *error_strings[];
 
@@ -296,7 +311,7 @@ extern uint32_t *big_rat_index_leash(void);
 // in predictions.c
 extern void create_workingset(size_t);
 
-extern bool predictions(rating_t[], int, prediction_t[], int, int, popularity_t);
+extern bool predictions(rating_t [], int, prediction_t [], int, int, popularity_t);
 
 // in main.c
 extern void gen_valence_cache(void);
