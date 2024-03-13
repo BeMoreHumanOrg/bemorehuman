@@ -89,7 +89,7 @@ awk -F, 'BEGIN { OFS="," }
 ' "$file1" "$file2" > "$temp_file"
 
 # Move the temporary file to replace file2 (if required)
-mv "$temp_file" movies.out
+mv "$temp_file" elements.out
 
 
 

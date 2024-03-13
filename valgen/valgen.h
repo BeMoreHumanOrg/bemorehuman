@@ -44,7 +44,7 @@
 // Defines
 
 // How many threads?
-#define NTHREADS 8
+#define NTHREADS 16
 
 // ratings variables
 #define RATINGS_THRESH 3
@@ -64,6 +64,9 @@
 
 // the most number of internal buckets we can have
 #define MAX_BUCKETS 32
+
+// How many popluarity groups do we want?
+#define NUM_G_POP_GROUPS 7
 
 // Typedefs
 

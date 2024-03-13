@@ -53,15 +53,11 @@ add_executable(valgen ${SOURCE_FILES})
 
 # set compile flags for my source file only
 # -O3 below is for valgrind debugging
-set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -O3")
+set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -Wno-unsafe-buffer-usage -O3")
 #set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -g")
 
 # The "-Wno-declarartion-after-statement" is b/c of a bug in clangd that gives a false warning when using C99 and above
-if (CMAKE_C_COMPILER_ID MATCHES "Clang")
-    set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wno-reserved-id-macro -Weverything")
-else()
-    set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wall")
-endif()
+set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wall -Wextra")
 
 set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
 

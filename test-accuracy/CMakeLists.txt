@@ -63,13 +63,9 @@ endif()
 add_executable(test-accuracy ${SOURCE_FILES})
 
 # set compile flags for my source file only
-set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-padded -Wno-vla  -Wno-declaration-after-statement -Wno-reserved-id-macro -Wno-documentation-unknown-command")
+set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-padded -Wno-vla  -Wno-declaration-after-statement -Wno-reserved-id-macro ")
 
-if (CMAKE_C_COMPILER_ID MATCHES "Clang")
-    set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Weverything")
-else()
-    set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wall")
-endif()
+set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wall -Wextra")
 
 set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
 

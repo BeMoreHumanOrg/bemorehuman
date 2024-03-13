@@ -546,7 +546,7 @@ void TestAccuracy(void)
 
     num_ratings_read = fread(g_big_rat, sizeof(rating_t), BE.num_ratings, rat_out);
     printf("Number of ratings read from bin file: %lu and we expected %lu to be read.\n",
-           num_ratings_read, (unsigned long) BE.num_ratings);
+           num_ratings_read, BE.num_ratings);
     fclose(rat_out);
     assert(num_ratings_read == BE.num_ratings);
     // end loading big_rat
@@ -558,8 +558,27 @@ void TestAccuracy(void)
     // Do we need to adjust the ratings based on a user-specified scale?
     if (g_ratings_scale != 32)
     {
+        /*
+        // test the ratings by outputting to test file
+        char proto_fname[128];
+        strcpy(proto_fname, FILE_TEMPLATE);
+        const int fd = mkstemp(proto_fname);
+        if (fd == -1)
+        {
+            perror("Error creating temporary file");
+            exit(EXIT_FAILURE);
+        }
+
+        FILE *file = fdopen(fd, "w");
+        if (!file)
+        {
+            perror("Error opening temporary ratings file for writing");
+            exit(EXIT_FAILURE);
+        }
+        */
         for (i = 0; i < BE.num_ratings; i++)
         {
+            // Ratings in bin file are always 32-based so need to convert to natural scale
             double floaty2 = (double) g_big_rat[i].rating / floaty;
             g_big_rat[i].rating = (short) bmh_round(floaty2);
             if (0 == g_big_rat[i].rating) g_big_rat[i].rating = 1;
@@ -574,8 +593,21 @@ void TestAccuracy(void)
             else if (8 == g_big_rat[i].rating) num8++;
             else if (9 == g_big_rat[i].rating) num9++;
             else if (10 == g_big_rat[i].rating) num10++;
-        }
-    }
+            /*
+            // Write content to the temporary file
+            // Make sure to use fwrite and not fprintff with %s
+            char buf[64];
+            sprintf(buf, "%d\t%d\t%d\n", g_big_rat[i].userid, g_big_rat[i].elementid, g_big_rat[i].rating);
+            size_t len = strlen(buf);
+            fwrite(buf, len, 1, file);
+            */
+        } // end for across all ratings
+        /*
+        // file cleanup
+        fflush(file);
+        fclose(file);
+        */
+    } // end if we're not in 32-scale
 
     // Read the big_rat_index
     strlcpy(file_to_open, BE.working_dir, sizeof(file_to_open));
@@ -590,6 +622,48 @@ void TestAccuracy(void)
     fclose(rat_out);
     assert(num_indices_read == BE.num_people + 1);
     // end loading big_rat_index
+
+    // begin loading of elements.out which is file of the form: elementid,elementname  (on each line)
+
+    // plan is to malloc the size of the band name when filling array
+    char * elements[BE.num_elts + 1];  // + 1 b/c id's start at 1
+
+    // Read the elements file
+    strlcpy(file_to_open, BE.working_dir, sizeof(file_to_open));
+    strlcat(file_to_open, "/", sizeof(file_to_open));
+    strlcat(file_to_open, "elements.out", sizeof(file_to_open));
+    FILE *elts_file = fopen(file_to_open, "r");
+    assert(NULL != elts_file);
+
+    int eltid;
+
+    // can also use strrchr instead of strtok
+    char line[256];
+    i = 1;
+    while (fgets(line, sizeof(line), elts_file) != 0)
+    {
+        // errything before the ',' is the eltid
+        // errything after the ',' is the band name
+        char *token;
+        char *search = ",\r\n";
+
+        token = strtok(line, search);
+        eltid = atoi(token);
+
+        token = strtok(NULL, search);
+        if (NULL != token)
+        {
+            elements[eltid] = (char *) calloc(strlen(token) + 1, 1); // need to delete \n
+            strncat(elements[eltid], token, strlen(token));
+        }
+        else
+            elements[eltid] = 0;
+        printf("i: %zu, eltid: %d, elements[eltid] is ---%s---\n", i, eltid, elements[eltid]);
+        i++;
+    } // end while fgets'ing lines from elements file
+
+    fclose(elts_file);
+    // end loading of elements.out which is file of the form: elementid,elementname  (on each line)
 
     // At this point we can use g_big_rat_index for people id numbers. And we can use the g_big_rat to get ratings.
     int userids[g_num_testing_people];
@@ -621,7 +695,7 @@ void TestAccuracy(void)
         printf("userid is %d\n", userid);
 
         // Compute how much we have done and print it out.
-        printf("*** %zu people have been processed out of %zu for this run. ***\n", userCounter, g_num_testing_people);
+        printf("*** %zu people werw processed out of %zu for this run. ***\n", userCounter, g_num_testing_people);
         printf("*** %f percent of people have been processed for this run. ***\n",
                floor(100 * (double) userCounter / (double) g_num_testing_people));
 
@@ -793,7 +867,9 @@ void TestAccuracy(void)
             memset(raw_response, 0, sizeof(raw_response));
 
             rating_item_t *one_ri = malloc(sizeof(rating_item_t));
-            one_ri->elementid = (uint32_t) i + 1;
+            one_ri->elementid = (uint32_t) held_back[i];
+            // wrong one_ri->elementid = (uint32_t) i + 1;
+
             rr.personid = (uint32_t) userids[userCounter];
             rr.ratings_list = one_ri;
 
@@ -815,8 +891,8 @@ void TestAccuracy(void)
             // unpack deserialized_data to get the recval
             if (deserialized_data) recval = deserialized_data->rating;
 
-            printf("For user %d holding back eltid %6d, rating %3d, recval of %3d\n",
-                   userid, held_back[i], ratings[i], recval);
+            printf("For user %d holding back elt \"%-32s\", id %6d, rating %3d, recval %3d, delta %3d\n",
+                   userid, elements[held_back[i]], held_back[i], ratings[i], recval, abs(recval - ratings[i]));
 
             // add an if check here to see if bemorehuman said anything about this one. 0 or -1 maybe? Dunno.
             if (recval > 0)
@@ -911,7 +987,7 @@ void TestAccuracy(void)
         printf("num1 is %d, num2 is %d, num3 is %d, num4 is %d, num5 is %d\n", num1, num2, num3, num4, num5);
     else if (10 == g_ratings_scale)
         printf(
-            "num1 is %d, num2 is %d, num3 is %d, num4 is %d, num5 is %d num6 is %d, num7 is %d, num8 is %d, num9 is %d, num10 is %d\n",
+            "num1: %d, num2: %d, num3: %d, num4: %d, num5: %d, num6: %d, num7: %d, num8: %d, num9: %d, num10: %d\n",
             num1, num2, num3, num4, num5, num6, num7, num8, num9, num10);
 } // end testAccuracy()
 

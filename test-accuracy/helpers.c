@@ -89,7 +89,7 @@ unsigned long call_bemorehuman_server(int protocol, int scenario, char *pb_fname
             break;
     }
 
-    printf("URL is ---%s---\n", URL);
+    // printf("URL is ---%s---\n", URL);
 
     // printf("URL for scenario %d is ---%s---\n", scenario, URL);
     FILE *fp = popen(URL, "r");

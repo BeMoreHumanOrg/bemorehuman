@@ -73,11 +73,11 @@ add_executable(hum hum.c)
 # set compile flags for my source file only
 # can add "-fsanitize=address -fno-omit-frame-pointer" if I want to incur overhead of mem leak checking at runtime. Must add link flag -fsanitize....
 # orig set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -std=c11 -Wno-vla  -Wno-reserved-id-macro -O3")
-set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -Wno-documentation-unknown-command ")
+set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -Wno-documentation-unknown-command -Wno-unsafe-buffer-usage ")
 
 # The "-Wno-declaration-after-statement is b/c of a bug in clangd that gives a false warning when using C99 and above
 # clang: set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wno-reserved-id-macro -Weverything")
-set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall ")
+set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall -Wextra ")
 
 set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
 set_source_files_properties(hum.c PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")

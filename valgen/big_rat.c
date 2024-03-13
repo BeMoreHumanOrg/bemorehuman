@@ -336,6 +336,7 @@ void big_rat_pull_from_flat_file(void)
 
     // Allow for tab and comma-delimited ratings input file.
     const char delimiter[3] = "\t,";
+    unsigned long people_bound = BE.num_people + 1;
 
     while ((line_length = getline(&line, &line_capacity, fp)) != -1)
     {
@@ -386,7 +387,7 @@ void big_rat_pull_from_flat_file(void)
         } // end while() parsing tokens
 
         // Check to make sure the elements and people ids are normalized.
-        if (r.eltid > BE.num_elts || r.userId > BE.num_people)
+        if (r.eltid > BE.num_elts || r.userId > people_bound)
         {
             syslog(LOG_ERR, "Either eltid %d is more than num_elts %lu or userid %d is more than num_people %lu. Userids and element ids must be in sequence. ratings_count is %lu. Exiting.",
                    r.eltid, BE.num_elts, r.userId, BE.num_people, ratings_count);
@@ -480,8 +481,8 @@ void big_rat_pull_from_flat_file(void)
     // First, sort it by rcount, high to low.
     qsort(g_pop, BE.num_elts + 1, sizeof(popularity_t), pop_count_cmp);
 
-    // Now divide up by 7.
-    size_t num_per_group = BE.num_elts / 7;
+    // Now divide up by NUM_G_POP_GROUPS.
+    size_t num_per_group = BE.num_elts / NUM_G_POP_GROUPS;
 
     // And set the pop value.
     uint8_t cur_pop = 1;

@@ -50,4 +50,8 @@ target_include_directories(bmh PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 install(TARGETS bmh)
 
-install(FILES ../config/bemorehuman.conf DESTINATION /etc/bemorehuman)
+# don't overwrite the bemorehuman.conf if it already exists b/c it's likely been customised by user
+install(CODE "if (NOT EXISTS \"/etc/bemorehuman/bemorehuman.conf\")
+       file(COPY ../config/bemorehuman.conf DESTINATION /etc/bemorehuman)
+       endif()
+ ")

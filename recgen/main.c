@@ -1489,5 +1489,5 @@ void gen_valence_cache_ds_only()
 
     // Record the end time.
     const long long finish = current_time_millis();
-    printf("Time to generate valence cache: %d milliseconds.\n", (int) (finish - start));
+    printf("Time to generate valence cache is: %d milliseconds.\n", (int) (finish - start));
 } // end gen_valence_cache_ds_only()

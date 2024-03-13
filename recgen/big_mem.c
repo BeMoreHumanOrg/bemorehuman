@@ -372,12 +372,11 @@ static int pull_from_files(bool createDS)
     char *line = NULL;
     size_t line_capacity = 0;
     ssize_t line_length;
-    const char delimiter[4] = "\",\"";
+    const char delimiter[4] = ",";
     char *token;
     exp_elt_t id_1 = 0, id_2 = 0, prev_id_1 = 0;
     double slope = 0, offset = 0 ;
     signed char tiny_slope, tiny_offset;
-    char conf = 'f';
     bool found = false;
 
     // In this function, add the slope/offset compression cache creation.
@@ -445,9 +444,6 @@ static int pull_from_files(bool createDS)
                     break;
                 case 5:   // coeff, which we are ignoring at this point
                     break;
-                case 6:   // conf
-                    conf =  token[0];
-                    break;
                 default:
                     syslog(LOG_ERR, "ERROR: hit the default case situation when parsing tokens in a line. Why?");
             }
@@ -455,60 +451,56 @@ static int pull_from_files(bool createDS)
             token_number++;
         } // end while() parsing tokens
 
-        // proceed only if we're confident about this valence (if conf is true)
-        if (conf == 't')
+        ncv++;
+
+        // valence is now 4 bytes and only 4 bits each for slope and offset
+        slope = slope * FLOAT_TO_SHORT_MULT;
+        tiny_slope = (signed char) bmh_round(slope);
+        offset = offset * FLOAT_TO_SHORT_MULT;
+        tiny_offset = (signed char) bmh_round(offset);
+
+        // Now figure out if slope/offset are unique or we've seen them before
+        // Do the slopes.
+        j = 0;
+        found = false;
+
+        while (!found && j < slope_count)
         {
-            ncv++;
-
-            // valence is now 4 bytes and only 4 bits each for slope and offset
-            slope = slope * FLOAT_TO_SHORT_MULT;
-            tiny_slope = (signed char) bmh_round(slope);
-            offset = offset * FLOAT_TO_SHORT_MULT;
-            tiny_offset = (signed char) bmh_round(offset);
-
-            // Now figure out if slope/offset are unique or we've seen them before
-            // Do the slopes.
-            j = 0;
-            found = false;
-
-            while (!found && j < slope_count)
+            // Walk the slope_arr to see if this slope is in there.
+            if (tiny_slope == slopes[j].guy)
             {
-                // Walk the slope_arr to see if this slope is in there.
-                if (tiny_slope == slopes[j].guy)
-                {
-                    found = true;
-                    slopes[j].count++;
-                }
-                j++;
+                found = true;
+                slopes[j].count++;
             }
-            if (!found)
-            {
-                // Couldn't find the slope, so insert it.
-                slopes[slope_count].guy = tiny_slope;
-                slope_count++;
-            }
+            j++;
+        }
+        if (!found)
+        {
+            // Couldn't find the slope, so insert it.
+            slopes[slope_count].guy = tiny_slope;
+            slope_count++;
+        }
 
-            // Do the offsets.
-            j = 0;
-            found = false;
+        // Do the offsets.
+        j = 0;
+        found = false;
 
-            while (!found && j < offset_count)
+        while (!found && j < offset_count)
+        {
+            // Walk the offset_arr to see if this offset is in there.
+            if (tiny_offset == offsets[j].guy)
             {
-                // Walk the offset_arr to see if this offset is in there.
-                if (tiny_offset == offsets[j].guy)
-                {
-                    found = true;
-                    offsets[j].count++;
-                }
-                j++;
+                found = true;
+                offsets[j].count++;
             }
-            if (!found)
-            {
-                // couldn't find the offset, so insert it
-                offsets[offset_count].guy = tiny_offset;
-                offset_count++;
-            }
-        } // end confident valence check
+            j++;
+        }
+        if (!found)
+        {
+            // couldn't find the offset, so insert it
+            offsets[offset_count].guy = tiny_offset;
+            offset_count++;
+        }
     } // end walking the valences file to create slope/offset tracing arrays
 
     assert(ncv == g_num_confident_valences);
@@ -912,9 +904,6 @@ static int pull_from_files(bool createDS)
                     break;
                 case 5:   // coeff, which we are ignoring at this point
                     break;
-                case 6:   // conf
-                    conf =  token[0];
-                    break;
                 default:
                     syslog(LOG_ERR, "ERROR: hit the default case situation when parsing tokens in a line. Why?");
             }
@@ -922,92 +911,88 @@ static int pull_from_files(bool createDS)
             token_number++;
         } // end while() parsing tokens
 
-        // Proceed only if we're confident about this valence (if conf is true).
-        if (conf == 't')
+        // Set the y element value in the bb.
+        if (createDS)
+            SETELT(g_bb_ds_temp[g_valence_count].eltid, id_2);
+        else
+            SETELT(g_bb[g_valence_count].eltid, id_2);
+
+        // Valence is now 4 bytes. Of that, only 4 bits for index for each of slope and offset
+        slope = slope * FLOAT_TO_SHORT_MULT;
+        tiny_slope = (signed char) bmh_round(slope);
+        offset = offset * FLOAT_TO_SHORT_MULT;
+        tiny_offset = (signed char) bmh_round(offset);
+
+        // Search the g_slopes to find the 4-bit index.
+        for (j = 0; j < slope_count; j++)
         {
-            // Set the y element value in the bb.
+            if (tiny_slope == g_slopes[j].value)
+            {
+                if (createDS)
+                    SETHIBITS(g_bb_ds_temp[g_valence_count].soindex, g_slopes[j].fewbit);
+                else
+                    SETHIBITS(g_bb[g_valence_count].soindex, g_slopes[j].fewbit);
+                found = true;
+                break;
+            }
+        }
+
+        // If we can't find it, print error.
+        if (! found)
+        {
+            syslog(LOG_ERR, "Couldn't find tiny_offset: %d", tiny_slope);
+
+            // Set to something popular.
             if (createDS)
-                SETELT(g_bb_ds_temp[g_valence_count].eltid, id_2);
+                SETHIBITS(g_bb_ds_temp[g_valence_count].soindex, g_slopes[0].fewbit);
             else
-                SETELT(g_bb[g_valence_count].eltid, id_2);
+                SETHIBITS(g_bb[g_valence_count].soindex, g_slopes[0].fewbit);
+        }
 
-            // Valence is now 4 bytes. Of that, only 4 bits for index for each of slope and offset
-            slope = slope * FLOAT_TO_SHORT_MULT;
-            tiny_slope = (signed char) bmh_round(slope);
-            offset = offset * FLOAT_TO_SHORT_MULT;
-            tiny_offset = (signed char) bmh_round(offset);
-
-            // Search the g_slopes to find the 4-bit index.
-            for (j = 0; j < slope_count; j++)
+        // Search the g_offsets to find the 4-bit index.
+        found = false;
+        for (j = 0; j < offset_count; j++)
+        {
+            if (tiny_offset == g_offsets[j].value)
             {
-                if (tiny_slope == g_slopes[j].value)
-                {
-                    if (createDS)
-                        SETHIBITS(g_bb_ds_temp[g_valence_count].soindex, g_slopes[j].fewbit);
-                    else
-                        SETHIBITS(g_bb[g_valence_count].soindex, g_slopes[j].fewbit);
-                    found = true;
-                    break;
-                }
-            }
-
-            // If we can't find it, print error.
-            if (! found)
-            {
-                syslog(LOG_ERR, "Couldn't find tiny_offset: %d", tiny_slope);
-
-                // Set to something popular.
                 if (createDS)
-                    SETHIBITS(g_bb_ds_temp[g_valence_count].soindex, g_slopes[0].fewbit);
+                    SETLOBITS(g_bb_ds_temp[g_valence_count].soindex, g_offsets[j].fewbit);
                 else
-                    SETHIBITS(g_bb[g_valence_count].soindex, g_slopes[0].fewbit);
+                    SETLOBITS(g_bb[g_valence_count].soindex, g_offsets[j].fewbit);
+                found = true;
+                break;
             }
+        }
 
-            // Search the g_offsets to find the 4-bit index.
-            found = false;
-            for (j = 0; j < offset_count; j++)
-            {
-                if (tiny_offset == g_offsets[j].value)
-                {
-                    if (createDS)
-                        SETLOBITS(g_bb_ds_temp[g_valence_count].soindex, g_offsets[j].fewbit);
-                    else
-                        SETLOBITS(g_bb[g_valence_count].soindex, g_offsets[j].fewbit);
-                    found = true;
-                    break;
-                }
-            }
+        // If we can't find it, log error.
+        if (! found)
+        {
+            syslog(LOG_ERR, "Couldn't find index for tiny_offset: %d", tiny_offset);
 
-            // If we can't find it, log error.
-            if (! found)
-            {
-                syslog(LOG_ERR, "Couldn't find index for tiny_offset: %d", tiny_offset);
-
-                // Set to something popular.
-                if (createDS)
-                    SETLOBITS(g_bb_ds_temp[g_valence_count].soindex, g_offsets[0].fewbit);
-                else
-                    SETLOBITS(g_bb[g_valence_count].soindex, g_offsets[0].fewbit);
-            }
-            found = false;
-
-            // If we're filling up the g_bb_ds_temp, then set the x value.
+            // Set to something popular.
             if (createDS)
-                COMPACT(g_bb_ds_temp[g_valence_count].x, id_1);
+                SETLOBITS(g_bb_ds_temp[g_valence_count].soindex, g_offsets[0].fewbit);
+            else
+                SETLOBITS(g_bb[g_valence_count].soindex, g_offsets[0].fewbit);
+        }
+        found = false;
 
-            // Create an index of x-value starting positions in Beast.
-            if (id_1 != prev_id_1)
-            {
-                g_bind_seg[id_1] = (bb_ind_t) g_valence_count;
-                prev_id_1 = id_1;
-            }
-            g_valence_count++;
+        // If we're filling up the g_bb_ds_temp, then set the x value.
+        if (createDS)
+            COMPACT(g_bb_ds_temp[g_valence_count].x, id_1);
 
-            // Spit something out every 10 M to generally track progress.
-            if (0 == (g_valence_count % 10000000))
-                syslog(LOG_INFO, "g_valence_count is: %lu", g_valence_count);
+        // Create an index of x-value starting positions in Beast.
+        if (id_1 != prev_id_1)
+        {
+            g_bind_seg[id_1] = (bb_ind_t) g_valence_count;
+            prev_id_1 = id_1;
+        }
+        g_valence_count++;
 
-        } // end if conf is true
+        // Spit something out every 10 M to generally track progress.
+        if (0 == (g_valence_count % 10000000))
+            syslog(LOG_INFO, "g_valence_count is: %lu", g_valence_count);
+
     } // end while we still have lines to process in this file
     syslog(LOG_INFO, "g_valence_count is %lu", g_valence_count);
     free(line);

@@ -246,7 +246,7 @@ int main(int argc, char **argv)
     
     for(i = 0; i < NTHREADS; i++)
     {
-        syslog(LOG_INFO,"starting thread %d (should be 0-7)", i);
+        syslog(LOG_INFO,"starting thread %d (should be 0-%d)", i, NTHREADS - 1);
         thread_args[i] = i;
         pthread_create( &thread_id[i], NULL, partial_elements, &thread_args[i]);
     }
@@ -305,23 +305,16 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    // Initialize the counter.
-    int count = 0;
+    // Count each line of the valences file. These are all 't' confident valences.
+    long int ncv_lines = 0;
+    while (EOF != ((void)(fscanf(infile, "%*[^\n]")), fscanf(infile,"%*c")))
+       ++ncv_lines;
 
-    // Read each line of the input file and check for 't' which means we care about it.
-    char line[256];
-    while (fgets(line, sizeof(line), infile) != NULL)
-    {
-       char *ptr = strrchr(line, 't');
-       if (NULL != ptr)
-           count++;
-    }
-
-    printf("num_confident_valences is %d\n", count);
-    syslog(LOG_INFO, "num_confident_valences is %d", count);
+    printf("num_confident_valences is %li\n", ncv_lines);
+    syslog(LOG_INFO, "num_confident_valences is %li", ncv_lines);
 
     // Write the final value of the counter to the output file.
-    fprintf(outfile, "%d", count);
+    fprintf(outfile, "%li", ncv_lines);
 
     // Close the input and output files
     fclose(infile);

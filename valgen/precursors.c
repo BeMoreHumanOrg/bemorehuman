@@ -443,10 +443,15 @@ void buildValences(uint32_t thread, uint32_t x)
         }
 
         char out_buffer[256];
-        sprintf(out_buffer, "\"%d\",\"%d\",\"%d\",\"%f\",\"%f\",\"%f\",\"%c\"\n", (int) el1, (int) el2,
-            num_rat, b, a,
-            spear, conf_value);
-        fwrite(out_buffer, strlen(out_buffer), 1, fp2);
+
+        // Only write to file if we're confident that we want to use the valence.
+        if ('t' == conf_value)
+        {
+            sprintf(out_buffer, "%d,%d,%d,%f,%f,%f\n", (int) el1, (int) el2,
+                num_rat, b, a,
+                spear);
+            fwrite(out_buffer, strlen(out_buffer), 1, fp2);
+        }
         // end CSV-appending
 
         // Set up for next pass thru.

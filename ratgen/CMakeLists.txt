@@ -57,7 +57,7 @@ set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -O3")
 
 # The "-Wno-declaration-after-statement is b/c of a bug in clangd that gives a false warning when using C99 and above
 # clang: set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wno-reserved-id-macro -Weverything")
-set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall")
+set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall -Wextra")
 
 set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS}")
 

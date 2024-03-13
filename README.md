@@ -310,7 +310,7 @@ To prepare the Movielens data:
 - Unzip the data file to any local directory you like such as ~/data
 - Copy ~/src/bemorehuman/valgen/convert_to_ints.sh to the directory where the just-unpacked ratings.csv is.
 
-      cd ~/data/movielens/ml-25m
+      cd ~/data/ml-25m
       cp ~/src/bemorehuman/valgen/convert_to_ints.sh .
 
 - Run the valgen script "convert_to_ints.sh" in the Movielens data dir
