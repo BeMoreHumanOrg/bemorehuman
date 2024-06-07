@@ -69,6 +69,7 @@ void buildValsInit(uint32_t thread)
 void build_pairs(uint32_t thread, uint32_t x)
 {
     uint32_t el1, el2;
+    uint32_t br_limit = BE.num_ratings - 1;
     
     // Catch-up if needed.
     while (brds[g_brds_walker[thread]].eltid < x)
@@ -90,7 +91,7 @@ void build_pairs(uint32_t thread, uint32_t x)
         // Ok, now we're at the first entry in BR that matches userid from brds.
         // Grab all the ratings for this user, to build up the (x,y) combinations.
         // First we need to bump the counter to make sure elt y id is > elt x id for the (x,y) pair.
-        while (br[current2ndRow].eltid <= x)
+        while (br[current2ndRow].eltid <= x && current2ndRow < br_limit)
         {
             current2ndRow++;
         }
