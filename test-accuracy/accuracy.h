@@ -43,6 +43,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 #ifdef USE_PROTOBUF
 #include "../recgen/recgen.pb-c.h"
 #endif
@@ -55,10 +56,15 @@
  * Constants. These are the bits in the code that are likely to change with a change in what's being recommended.
  */
 #define RB_URL_LENGTH 2048
-#define RB_CURL_PB_PREFIX "curl -X POST --silent --data-binary @- -H 'Content-Type: application/%s' -H 'accept: application/%s' http://%s/bmh/%s < %s%s"
 #define DEV_SERVER_STRING "127.0.0.1:8888"
+#define DEV_SERVER "127.0.0.1"
+#define DEV_SERVER_PORT 8888
 #define STAGE_SERVER_STRING "fee.stage:4566"
+#define STAGE_SERVER "fee.stage"
+#define STAGE_SERVER_PORT 4566
 #define PROD_SERVER_STRING "foo.production:4567"
+#define PROD_SERVER "foo.production"
+#define PROD_SERVER_PORT 4567
 
 #define TEST_LOC_DEV 0
 #define TEST_LOC_STAGE 1
@@ -134,6 +140,11 @@ typedef struct
     void *(*deserialize)(const int scenario, const void *data, char **status, const size_t len); // conversion
 } protocol_interface;
 
+typedef struct
+{
+    int socket;
+    struct sockaddr_in server_addr;
+} http_client;
 
 //
 // Prototypes of things used outside the function's own source file
@@ -147,6 +158,8 @@ extern unsigned int random_uint(unsigned int);
 
 // in helpers.c
 extern unsigned long call_bemorehuman_server(int, int, char *, char *);
+extern unsigned long contact_bemorehuman_server(int, int, const char *, char **);
+extern void cleanup_http_client(void);
 
 // globals
 extern int g_server_location;

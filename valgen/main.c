@@ -182,7 +182,7 @@ int main(int argc, char **argv)
     // Declare time vars.
     long long start, finish;
 
-    syslog(LOG_INFO, "BE.num_elts is %lu", BE.num_elts);
+    syslog(LOG_INFO, "BE.num_elts is %" PRIu64, BE.num_elts);
 
     // Begin big_rat stuff: initialise the big_rat.
     big_rat_init();

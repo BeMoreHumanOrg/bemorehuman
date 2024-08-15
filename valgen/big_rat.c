@@ -195,7 +195,7 @@ int ratingcmpDS(const void* p1, const void* p2)
 //          0 if the two rcounts are the same.
 //          1 if the first rcount is less than the second.
 //
-int static pop_count_cmp(const void* p1, const void* p2)
+static int pop_count_cmp(const void* p1, const void* p2)
 {
     popularity_t x = *(const popularity_t *) p1, y = *(const popularity_t *) p2;
 
@@ -379,7 +379,7 @@ void big_rat_pull_from_flat_file(void)
                     break;
                 default:
                     syslog(LOG_ERR, "ERROR: hit the default case situation when parsing tokens in ratings input file. Why?");
-                    syslog(LOG_ERR, "token number in default case is: %d, ratings_count is %lu", token_number, ratings_count);
+                    syslog(LOG_ERR, "token number in default case is: %d, ratings_count is %" PRIu64, token_number, ratings_count);
                     exit(-1);
             } // end switch stmt
             token = strtok(NULL, delimiter);
@@ -389,7 +389,7 @@ void big_rat_pull_from_flat_file(void)
         // Check to make sure the elements and people ids are normalized.
         if (r.eltid > BE.num_elts || r.userId > people_bound)
         {
-            syslog(LOG_ERR, "Either eltid %d is more than num_elts %lu or userid %d is more than num_people %lu. Userids and element ids must be in sequence. ratings_count is %lu. Exiting.",
+            syslog(LOG_ERR, "Either eltid %d is more than num_elts %" PRIu64 " or userid %d is more than num_people %" PRIu64 ". Userids and element ids must be in sequence. ratings_count is %" PRIu64 ". Exiting.",
                    r.eltid, BE.num_elts, r.userId, BE.num_people, ratings_count);
             exit(-1);
         }
@@ -398,11 +398,11 @@ void big_rat_pull_from_flat_file(void)
 
         // Spit something out every 1 M to generally track progress.
         if (0 == (ratings_count % 1000000))
-            printf("ratings_count is: %lu \n", ratings_count);
+            printf("ratings_count is: %" PRIu64" \n", ratings_count);
         ratings_count++;
     } // end while we still have lines to process in this file
 
-    printf("final ratings_count: %lu\n", ratings_count);
+    printf("final ratings_count: %" PRIu64 "\n", ratings_count);
     free(line);
     fclose(fp);
 
@@ -415,7 +415,7 @@ void big_rat_pull_from_flat_file(void)
     syslog(LOG_INFO, "Time to load: %d milliseconds", (int) (finish - start));
 
     // Print the number of big_rat elts.
-    syslog(LOG_INFO, "Number of big_rat elements is %lu", g_curr);
+    syslog(LOG_INFO, "Number of big_rat elements is %" PRIu64, g_curr);
 
     // 4) sort the big guy
     // Now sort on uid.
@@ -441,8 +441,8 @@ void big_rat_pull_from_flat_file(void)
     // sanity check
     for (i = 0; i < 10; i++)
     {
-        syslog(LOG_INFO, "big_rat [%lu].userId: %d, rating: %d, elt: %d", i, g_big_rat[i].userId, g_big_rat[i].rating, g_big_rat[i].eltid);
-        syslog(LOG_INFO, "big_rat_ds [%lu].userId: %d, rating: %d, elt: %d", i, g_big_rat_ds[i].userId, g_big_rat_ds[i].rating, g_big_rat_ds[i].eltid);
+        syslog(LOG_INFO, "big_rat [%" PRIu64"].userId: %d, rating: %d, elt: %d", i, g_big_rat[i].userId, g_big_rat[i].rating, g_big_rat[i].eltid);
+        syslog(LOG_INFO, "big_rat_ds [%" PRIu64 "].userId: %d, rating: %d, elt: %d", i, g_big_rat_ds[i].userId, g_big_rat_ds[i].rating, g_big_rat_ds[i].eltid);
     }
 
     br = g_big_rat;
@@ -553,7 +553,7 @@ void export_br(void)
     assert(NULL != rat_out);
     size_t num_ratings_written;
     num_ratings_written = fwrite(g_big_rat, sizeof(Rating), BE.num_ratings, rat_out);
-    syslog(LOG_INFO, "Number of ratings written to bin file: %lu and we expected %lu to be written.",
+    syslog(LOG_INFO, "Number of ratings written to bin file: %lu and we expected %" PRIu64 " to be written.",
            num_ratings_written, BE.num_ratings);
     fclose(rat_out);
 
@@ -565,7 +565,7 @@ void export_br(void)
     assert(NULL != rat_out);
 
     num_ratings_written = fwrite(br_index, sizeof(uint32_t), BE.num_people + 1, rat_out);
-    syslog(LOG_INFO, "Number of br_index entries written to bin file: %lu and we expected %lu to be written.",
+    syslog(LOG_INFO, "Number of br_index entries written to bin file: %lu and we expected %" PRIu64 " to be written.",
            num_ratings_written, BE.num_people + 1);
     fclose(rat_out);
 } // end export_br()

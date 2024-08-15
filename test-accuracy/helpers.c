@@ -40,36 +40,99 @@ long long current_time_micros(void)
     return (t);
 } // end current_time_micros()
 
+bool client_initialized = false;  // have we initialized the http client yet?
+http_client *client;              // this is the structure for communicating w/server
+#define MAX_BUFFER_SIZE 65536
+
+// One-time setup function
+void setup_http_client(const char *host, int port)
+{
+    client = malloc(sizeof(http_client));
+    if (client == NULL)
+    {
+        perror("Failed to allocate memory for http_client. Exiting.");
+        exit(1);
+    }
+
+    // Create socket
+    if ((client->socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        perror("Socket creation error. Exiting.");
+        free(client);
+        exit(1);
+    }
+
+    client->server_addr.sin_family = AF_INET;
+    client->server_addr.sin_port = htons(port);
+
+    // Convert IPv4 and IPv6 addresses from text to binary form
+    if (inet_pton(AF_INET, host, &client->server_addr.sin_addr) <= 0)
+    {
+        perror("Invalid address/ Address not supported. Exiting.");
+        free(client);
+        exit(1);
+    }
+    printf("host: ---%s---, port ---%d---\n", host, port);
+    client_initialized = true;
+} // end setup_http_client()
+
+
+// Cleanup function
+void cleanup_http_client()
+{
+    if (client)
+    {
+        close(client->socket);
+        free(client);
+    }
+} // end cleanup_http_client()
+
+
+// Content-Length extraction function
+int extract_content_length(const char *response)
+{
+    const char *header = "Content-Length:";
+    char *start = strcasestr(response, header);
+    if (start)
+    {
+        start += strlen(header);
+        while (isspace(*start)) start++;
+        return atoi(start);
+    }
+    return -1;
+} // end extract_content_length()
+
 
 // This routine calls the bemorehuman server and returns the response.
 //
-// inputs: int scenario, char *pb_fname;
+// inputs: int protocol, int scenario, char *fname;
 // outputs: char *raw_response;
 // return: unsigned long number of chars read
-unsigned long call_bemorehuman_server(int protocol, int scenario, char *pb_fname, char *raw_response)
+unsigned long contact_bemorehuman_server(int protocol, int scenario, const char *req_body, char **raw_response)
 {
-    char URL[RB_URL_LENGTH];
-    // default is dev
-    char file_suffix[64] = "";
-    char server_loc[32] = DEV_SERVER_STRING;
+    int port;
 
-    // 3 options for suffix for fname of testfile: "", "_prod",  or "_prod_pid"
+    // default is dev
+    char server_loc[32] = DEV_SERVER;
+    port = DEV_SERVER_PORT;
+
     // 3 options for server machine: localhost, stage, prod
-        
     if (TEST_LOC_STAGE == g_server_location)
     {
-        strcpy(file_suffix, "_stage");
-        strcpy(server_loc, STAGE_SERVER_STRING);
+        strcpy(server_loc, STAGE_SERVER);
+        port = STAGE_SERVER_PORT;
     }
-        
     if (TEST_LOC_PROD == g_server_location)
     {
-        strcpy(file_suffix, "_prod");
-        strcpy(server_loc, PROD_SERVER_STRING);
+        strcpy(server_loc, PROD_SERVER);
+        port = PROD_SERVER_PORT;
     }
 
-    if (NULL == pb_fname)
-        pb_fname = "";
+    if (NULL == req_body)
+    {
+        syslog(LOG_CRIT, "request body is null. Exiting.");
+        exit(1);
+    }
 
     char protocol_string[20];
     if (protocol == PROTOCOL_JSON)
@@ -77,37 +140,131 @@ unsigned long call_bemorehuman_server(int protocol, int scenario, char *pb_fname
     else
         strcpy(protocol_string, "octet-stream");
 
+    char path[32] = "/bmh/";
     switch (scenario)
     {
-        case SCENARIO_RECS:  sprintf(URL, RB_CURL_PB_PREFIX, protocol_string, protocol_string, server_loc, "recs", pb_fname, file_suffix);
+        case SCENARIO_RECS:  strcat(path, "recs");
             break;
-        case SCENARIO_EVENT:  sprintf(URL, RB_CURL_PB_PREFIX, protocol_string, protocol_string, server_loc, "event", pb_fname, file_suffix);
+        case SCENARIO_EVENT:  strcat(path, "event");
             break;
-        case SCENARIO_SINGLEREC:  sprintf(URL, RB_CURL_PB_PREFIX, protocol_string, protocol_string, server_loc, "internal-singlerec", pb_fname, file_suffix);
+        case SCENARIO_SINGLEREC:  strcat(path, "internal-singlerec");
             break;
         default: printf("*** Broken scenario value in call_bemorehuman_server! Bad.\n");
             break;
     }
 
-    // printf("URL is ---%s---\n", URL);
-
-    // printf("URL for scenario %d is ---%s---\n", scenario, URL);
-    FILE *fp = popen(URL, "r");
-    assert(NULL != fp);
-
-    // Build up the response, line by line, and let the caller deal with the contents.
-    char line[RB_LINE];
-    unsigned long num_chars_read = 0;
-    while (NULL != fgets(line, RB_LINE, fp))
+    // Initialize http client if we haven't yet
+    if (!client_initialized) setup_http_client(server_loc, port);
+    if (client == NULL)
     {
-        strcat(raw_response, line);
-        num_chars_read += strlen(line);
+        syslog(LOG_CRIT, "http client is null. Exiting.");
+        exit(1);
     }
+
+       // Connect to server
+    if (connect(client->socket, (struct sockaddr *) &client->server_addr, sizeof(client->server_addr)) < 0)
+    {
+        perror("Connection Failed");
+        return -1;
+    }
+
+    int content_length = strlen(req_body);
+
+    // Prepare HTTP POST request with specific path
+    char request[MAX_BUFFER_SIZE];
+    snprintf(request, sizeof(request),
+             "POST %s HTTP/1.1\r\n"
+             "Host: %s\r\n"
+             "Content-Type: application/json\r\n"
+             "Content-Length: %d\r\n"
+             "\r\n"
+             "%s", path, server_loc, content_length, req_body);
+
+    // Send HTTP request
+    send(client->socket, request, strlen(request), 0);
+    // printf("HTTP request sent:\n%s\n", request);
+
+    // Receive server response
+    char buffer[MAX_BUFFER_SIZE] = {0};
+    int total_bytes_read = 0;
+    int bytes_read;
+    char *header_end = NULL;
+
+    // Read response
+    while ((bytes_read = read(client->socket, buffer + total_bytes_read, sizeof(buffer) - total_bytes_read - 1)) > 0)
+    {
+        total_bytes_read += bytes_read;
+        buffer[total_bytes_read] = '\0';
+
+        header_end = strstr(buffer, "\r\n\r\n");
+        if (header_end)
+        {
+            break;
+        }
+    }
+
+    if (header_end == NULL)
+    {
+        printf("Failed to receive complete headers\n");
+        return -1;
+    }
+
+    // Calculate header length
+    int header_length = header_end - buffer + 4;
+
+    // Extract and print headers
+    char headers[MAX_BUFFER_SIZE] = {0};
+    strncpy(headers, buffer, header_length);
+
+    // printf("Received headers:\n%s\n", headers);
+
+    // Extract Content-Length
+    int content_length_response = extract_content_length(headers);
+    if (content_length_response < 0)
+    {
+        printf("Content-Length header not found\n");
+        return -1;
+    }
+
+    // printf("Content-Length: %d\n", content_length_response);
+
+    // Process response body
+    char *response_body = malloc(content_length_response + 1);
+    if (response_body == NULL)
+    {
+        perror("Failed to allocate memory for body");
+        return -1;
+    }
+
+    int body_bytes_read = total_bytes_read - header_length;
+    if (body_bytes_read > 0)
+    {
+        memcpy(response_body, header_end + 4, body_bytes_read);
+    }
+
+    while (body_bytes_read < content_length_response)
+    {
+        bytes_read = read(client->socket, response_body + body_bytes_read, content_length_response - body_bytes_read);
+        if (bytes_read <= 0) break;
+        body_bytes_read += bytes_read;
+    }
+
+    response_body[body_bytes_read] = '\0';
+
+    // printf("Response body:\n%s\n", response_body);
+
+    *raw_response = response_body;
+
+    // Close the connection (important for keeping the server happy).
+    close(client->socket);
+
+    // Recreate the socket for the next request
+    client->socket = socket(AF_INET, SOCK_STREAM, 0);
+
     //cleanup
-    pclose(fp);
+    return (body_bytes_read);
+} // end contact_bemorehuman_server()
 
-    return (num_chars_read);
 
-} // end call_bemorehuman_server()
 
 // end helpers.c

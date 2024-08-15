@@ -22,8 +22,9 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 // This file is part of bemorehuman. See https://bemorehuman.org
-
+#ifdef linux
 #include <malloc.h>
+#endif
 #include "recgen.h"
 
 //
@@ -128,8 +129,6 @@ static void quicksort_iterative(valence_xy_t array[], uint64_t len)
         } // end for
         if (pos == 0) break;                             // stack empty?
         left = len;                                      // left to right is sorted
-        if (len % 10000000 == 0)
-            syslog(LOG_INFO, "at bottom of q_i, finished len = %lu", len);
         len = stack[--pos];                              // get next range to sort
     }  // end for
 }  // end quicksort_iterative()
@@ -279,7 +278,7 @@ static void pull_from_beast_export()
     assert(NULL != val_out);
 
     num_valences_read = fread(g_bind_seg, sizeof(bb_ind_t), BE.num_elts, val_out);
-    syslog(LOG_INFO, "Number of valence segment starts read from bin file: %lu and we expected %lu to be read.",
+    syslog(LOG_INFO, "Number of valence segment starts read from bin file: %lu and we expected %" PRIu64 " to be read.",
            num_valences_read, BE.num_elts);
     fclose(val_out);
     assert(num_valences_read == BE.num_elts);
@@ -305,7 +304,7 @@ static void pull_from_beast_export()
     assert(NULL != val_out);
 
     num_valences_read = fread(g_bind_seg_ds, sizeof(bb_ind_t), BE.num_elts, val_out);
-    syslog(LOG_INFO, "Number of valence segment starts read from DS bin file: %lu and we expected %lu to be read.",
+    syslog(LOG_INFO, "Number of valence segment starts read from DS bin file: %lu and we expected %" PRIu64 " to be read.",
            num_valences_read, BE.num_elts);
     fclose(val_out);
     assert(num_valences_read == BE.num_elts);
@@ -355,7 +354,7 @@ static int pull_from_files(bool createDS)
 
     // Walk the bind_seg and initialize it.
     for (i = 0; i < BE.num_elts; i++) g_bind_seg[i] = -1;
-    syslog(LOG_INFO, "BE.num_elts is %lu", BE.num_elts);
+    syslog(LOG_INFO, "BE.num_elts is %" PRIu64, BE.num_elts);
 
     syslog(LOG_INFO, "BE.valence_files_dir is ---%s---", BE.working_dir);
     strlcpy(filename, BE.working_dir, sizeof(filename));
@@ -591,7 +590,7 @@ static int pull_from_files(bool createDS)
         if (cume + percent > next_boundary || i == (slope_count - 1))
         {
             // compute/print bucket value now that we're at the end
-            for (j = 0; j < bucket_elt_total; j++)
+            for (j = 0; j < (size_t) bucket_elt_total; j++)
             {
                 bucket_value_double += percents[j] * slopes[i - bucket_elt_total + j].guy;
             }
@@ -675,11 +674,11 @@ static int pull_from_files(bool createDS)
         strlcat(out_buffer, "10\t", sizeof(out_buffer));
 
     char bstr[6];
-    for (i=0; i < curr_bucket; i++)
+    for (i=0; (int8_t) i < curr_bucket; i++)
     {
         itoa(buckets_slope[i].value, bstr);
         strlcat(out_buffer, bstr, sizeof(out_buffer));
-        if (i < curr_bucket - 1)
+        if ((int8_t) i < curr_bucket - 1)
             strlcat(out_buffer, "\t", sizeof(out_buffer));
     } // end for loop across buckets
 
@@ -732,7 +731,7 @@ static int pull_from_files(bool createDS)
         if (cume + percent > next_boundary || i == (offset_count - 1))
         {
             // compute/print bucket value now that we're at the end
-            for (j = 0; j < bucket_elt_total; j++)
+            for (j = 0; (int) j < bucket_elt_total; j++)
                 bucket_value_double += percents[j] * offsets[i - bucket_elt_total + j].guy;
             bucket_value_double /= bucket_percent_total;
             bucket_value = (int8_t) bmh_round(bucket_value_double);
@@ -778,11 +777,11 @@ static int pull_from_files(bool createDS)
     if (special_offset)
         strlcat(out_buffer, "0\t", sizeof(out_buffer));
 
-    for (i=0; i < curr_bucket; i++)
+    for (i=0; (int8_t) i < curr_bucket; i++)
     {
         itoa(buckets_offset[i].value, bstr);
         strlcat(out_buffer, bstr, sizeof(out_buffer));
-        if (i < curr_bucket - 1)
+        if ((int8_t) i < curr_bucket - 1)
             strlcat(out_buffer, "\t", sizeof(out_buffer));
     } // end for loop across buckets
 
@@ -804,7 +803,7 @@ static int pull_from_files(bool createDS)
     int8_t f_start = special_slope == true ? 1 : 0;
 
     if (f_start) g_tiny_slopes[0] = 10;   // right at the front of the queue b/c he's a large percentage of the s/o
-    for (i = 0; i < (NUM_SO_BUCKETS - f_start); i++)
+    for (i = 0; (int) i < (NUM_SO_BUCKETS - f_start); i++)
     {
         g_tiny_slopes[i + f_start] = buckets_slope[i].value;
         g_tiny_slopes_inv[i + f_start] = (double) 1.0 / g_tiny_slopes[i + f_start];
@@ -823,7 +822,7 @@ static int pull_from_files(bool createDS)
         } // end if special slope is true
 
         // Assign the fewbit value.
-        for (j = 0; j < (NUM_SO_BUCKETS - f_start); j++)
+        for (j = 0; (int) j < (NUM_SO_BUCKETS - f_start); j++)
         {
             if (g_slopes[i].value >= buckets_slope[j].start && g_slopes[i].value <= buckets_slope[j].stop)
                 g_slopes[i].fewbit = j + f_start;
@@ -834,7 +833,7 @@ static int pull_from_files(bool createDS)
     f_start = special_offset == true ? 1 : 0;
 
     if (f_start) g_tiny_offsets[0] = 0;   // right at the front of the queue b/c he's a large percentage of the s/o
-    for (i = 0; i < (NUM_SO_BUCKETS - f_start); i++)
+    for (i = 0; (int) i < (NUM_SO_BUCKETS - f_start); i++)
         g_tiny_offsets[i + f_start] = buckets_offset[i].value;
 
     // Use popularity order to determine order of slopes/offsets in memory
@@ -850,7 +849,7 @@ static int pull_from_files(bool createDS)
         } // end if special slope is true
 
         // Assign the fewbit value.
-        for (j = 0; j < (NUM_SO_BUCKETS - f_start); j++)
+        for (j = 0; (int) j < (NUM_SO_BUCKETS - f_start); j++)
         {
             if (g_offsets[i].value >= buckets_offset[j].start && g_offsets[i].value <= buckets_offset[j].stop)
                 g_offsets[i].fewbit = j + f_start;
@@ -991,10 +990,10 @@ static int pull_from_files(bool createDS)
 
         // Spit something out every 10 M to generally track progress.
         if (0 == (g_valence_count % 10000000))
-            syslog(LOG_INFO, "g_valence_count is: %lu", g_valence_count);
+            syslog(LOG_INFO, "g_valence_count is: %" PRIu64, g_valence_count);
 
     } // end while we still have lines to process in this file
-    syslog(LOG_INFO, "g_valence_count is %lu", g_valence_count);
+    syslog(LOG_INFO, "g_valence_count is %" PRIu64, g_valence_count);
     free(line);
     fclose(fp);
     return 0;
@@ -1021,7 +1020,7 @@ void export_beast()
 
     assert(NULL != val_out);
     size_t num_valences_written = fwrite(g_bb, sizeof(valence_t), g_valence_count, val_out);
-    syslog(LOG_INFO, "Number of valences written to bin file: %lu and we expected %lu to be written.",
+    syslog(LOG_INFO, "Number of valences written to bin file: %lu and we expected %" PRIu64 " to be written.",
            num_valences_written, g_valence_count);
     fclose(val_out);
     
@@ -1032,7 +1031,7 @@ void export_beast()
     val_out = fopen(filename,"w");
     assert(NULL != val_out);
     num_valences_written = fwrite(g_bind_seg, sizeof(bb_ind_t), BE.num_elts, val_out);
-    syslog(LOG_INFO, "Number of valence segment starts written to bin file: %lu and we expected %lu to be written.",
+    syslog(LOG_INFO, "Number of valence segment starts written to bin file: %lu and we expected %" PRIu64 " to be written.",
            num_valences_written, BE.num_elts);
     fclose(val_out);
 } // end exportBeast()
@@ -1058,7 +1057,7 @@ void export_ds()
 
     assert(NULL != val_out);
     size_t num_valences_written = fwrite(g_bb_ds, sizeof(valence_t), g_valence_count, val_out);
-    syslog(LOG_INFO, "Number of valences written to DS bin file: %lu and we expected %lu to be written.",
+    syslog(LOG_INFO, "Number of valences written to DS bin file: %lu and we expected %" PRIu64 " to be written.",
            num_valences_written, g_valence_count);
     fclose(val_out);
     
@@ -1069,7 +1068,7 @@ void export_ds()
     val_out = fopen(filename,"w");
     assert(NULL != val_out);
     num_valences_written = fwrite(g_bind_seg_ds, sizeof(bb_ind_t), BE.num_elts, val_out);
-    syslog(LOG_INFO, "Number of valence segment starts written to DS bin file: %lu and we expected %lu to be written.",
+    syslog(LOG_INFO, "Number of valence segment starts written to DS bin file: %lu and we expected %" PRIu64 " to be written.",
            num_valences_written, BE.num_elts);
     fclose(val_out);
 } // end exportDS()
@@ -1129,7 +1128,7 @@ bool pop_load()
     if ((unsigned long) i != (BE.num_elts + 1))
     {
         syslog(LOG_ERR,
-               "ERROR: BE.num_elts (%lu) did not equal number of rows minus 1 (%d) from pop.out. Exiting.",
+               "ERROR: BE.num_elts (%" PRIu64 ") did not equal number of rows minus 1 (%d) from pop.out. Exiting.",
                BE.num_elts, i);
         exit(-1);
     }
@@ -1378,7 +1377,7 @@ bool big_rat_load()
     assert(NULL != rat_out);
 
     num_ratings_read = fread(g_big_rat_index, sizeof(uint32_t), BE.num_people + 1, rat_out);
-    syslog(LOG_INFO, "Number of index locations read from bin file: %lu and we expected %lu to be read.",
+    syslog(LOG_INFO, "Number of index locations read from bin file: %lu and we expected %" PRIu64 " to be read.",
            num_ratings_read, BE.num_people + 1);
     fclose(rat_out);
     assert(num_ratings_read == BE.num_people + 1);

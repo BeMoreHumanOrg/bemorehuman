@@ -29,8 +29,13 @@
 // This file contains helper functions that relate to predictions.
 //
 
-// Making these static because their scope is intentionally limited to this file.
+#ifdef USE_FCGI
 static __thread prediction_t *g_workingset;  // The workingset is the working area where we build up the predictions.
+#else
+static prediction_t *g_workingset;  // The workingset is the working area where we build up the predictions.
+#endif
+
+
 static bool pcr_created = false;  // Have we populated the pre-calculated ratings yet?
 
 static int pcrx[256][32];    // Pre-calculated rating of x = (y - b)/m
@@ -127,7 +132,6 @@ static void create_pcrs(const int8_t *tiny_slopes,
     pcr_created = true;
 } // end create_pcrs()
 
-
 // Tally gets called once for each live user and calculates possible recommendation values for the other elements
 static void tally(valence_t *bb,
                   const bb_ind_t *bind_seg,
@@ -139,7 +143,7 @@ static void tally(valence_t *bb,
     for (int i=0; i < rat_length; i++)
     {
         int rating;
-        valence_t *bb_ptr;
+        const valence_t *bb_ptr;
         exp_elt_t prediction_to_make;
         const uint32_t user_rated = ur[i].elementid;
         const uint8_t user_rating = ur[i].rating;
@@ -167,7 +171,8 @@ static void tally(valence_t *bb,
             if (-1 == y_start_next)
                 y_start_next = (bb_ind_t) (g_num_confident_valences - 1);
 
-            for (bb_ptr = &bb_ds[y_start]; bb_ptr < &bb_ds[y_start_next]; bb_ptr++)
+            const valence_t *const end_ptr = &bb_ds[y_start_next];
+            for (bb_ptr = &bb_ds[y_start]; bb_ptr < end_ptr; ++bb_ptr)
             {
                 // Get the prediction_to_make value from the val_key.
                 prediction_to_make = GET_ELT(bb_ptr->eltid);
@@ -198,7 +203,8 @@ static void tally(valence_t *bb,
             if (-1 == x_start_next)
                 x_start_next = (bb_ind_t) (g_num_confident_valences - 1);
 
-            for (bb_ptr = &bb[x_start]; bb_ptr < &bb[x_start_next]; bb_ptr++)
+            const valence_t *const end_ptr = &bb[x_start_next];
+            for (bb_ptr = &bb[x_start]; bb_ptr < end_ptr; bb_ptr++)
             {
                 // Get the prediction_to_make value from the val_key.
                 prediction_to_make = GET_ELT(bb_ptr->eltid);
@@ -216,7 +222,7 @@ static void tally(valence_t *bb,
 // Composite the prediction values.
 static void composite(uint64_t num_recs)
 {
-    for (int i = 0; i < num_recs; i++)
+    for (int i = 0; i < (int) num_recs; i++)
     {
         if (g_workingset[i].rating_count < MIN_VALENCES_FOR_PREDICTIONS)
         {
@@ -231,7 +237,7 @@ static void composite(uint64_t num_recs)
 // Put the passed-in eltid's entry at the head of the list.
 static void find_single(uint64_t num_recs, int eltid)
 {
-    for (int i = 0; i < num_recs; i++)
+    for (int i = 0; i < (int) num_recs; i++)
     {
         if ((exp_elt_t ) eltid == g_workingset[i].elementid)
         {
@@ -305,11 +311,11 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     // Are we recommending top numRecs items?
     if (0 == eltid)
     {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
         qsort(g_workingset, BE.num_elts, sizeof(prediction_t), predcmp);
 #endif
 
-#ifdef __NetBSD__
+#if defined(__NetBSD__)
         // On NetBSD, qsort is very slow for this particular situation. Mergesort is much faster.
         mergesort(g_workingset, BE.num_elts, sizeof(prediction_t), predcmp);
 #endif

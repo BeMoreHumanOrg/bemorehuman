@@ -52,8 +52,8 @@ set(SOURCE_FILES ${MY_SOURCE_FILES} ${OTHER_SOURCE_FILES})
 include_directories(vendor/yyjson/src)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    include_directories(/opt/pkg/include)
-    link_directories(/opt/pkg/lib)
+    include_directories(/usr/local/include)
+    link_directories(/usr/local/lib)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -77,7 +77,7 @@ set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-vla -Wno-documentation-unknown-comma
 
 # The "-Wno-declaration-after-statement is b/c of a bug in clangd that gives a false warning when using C99 and above
 # clang: set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wno-reserved-id-macro -Weverything")
-set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wno-declaration-after-statement -Wall -Wextra ")
+set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -O3 -Wno-declaration-after-statement -Wall -Wextra ")
 
 set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
 set_source_files_properties(hum.c PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
@@ -86,7 +86,7 @@ set_source_files_properties(hum.c PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} 
 set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
 set_target_properties(hum PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
 
-if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
+if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
    # set rpath
    set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
    set_target_properties(hum PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)

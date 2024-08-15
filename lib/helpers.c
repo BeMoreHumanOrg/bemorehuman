@@ -64,7 +64,7 @@ long long current_time_micros(void)
 
 //  BEGIN A few string helpers
 
-#ifndef HAVE_STRLCAT
+#ifndef strlcat
 
 // strlcat() - Safely concatenate two strings.
 size_t                             // O - Length of string
@@ -99,9 +99,9 @@ strlcat(char *restrict dst,        // O - Destination string
     return (dlen + (s - src));  // count does not include NULL
 } // end strlcat()
 
-#endif // !HAVE_STRLCAT
+#endif // strlcat
 
-#ifndef HAVE_STRLCPY
+#ifndef strlcpy
 
 // strlcpy() - Safely copy one string to another.
 size_t                             // O - Length of string
@@ -135,7 +135,7 @@ strlcpy(char *restrict dst,        // O - Destination string
     return (s - src - 1);   // count does not include NULL
 } // end strlcpy()
 
-#endif // !HAVE_STRLCPY
+#endif // strlcpy
 
 // The 2 guys below are from the K&R "C Programming Language" 2nd Edition.
 // reverse:  reverse string s in place

@@ -39,47 +39,10 @@ static bool g_test_event_call = false;
 //
 //
 
-// Create the temp file that holds the passed-in protobuffer.
-static void make_tmpfile(const char *buf, size_t len, char **pb_fname)
-{
-    // ok, write the protobuf to a file
-    char proto_fname[128];
-
-    // orig: sprintf(proto_fname, "/tmp/scenario_2.pb");
-    strcpy(proto_fname, FILE_TEMPLATE);
-    const int fd = mkstemp(proto_fname);
-
-    if (fd == -1)
-    {
-        perror("Error creating temporary file");
-        exit(EXIT_FAILURE);
-    }
-
-    // Write content to the temporary file
-    FILE *file = fdopen(fd, "w");
-    if (file)
-    {
-        // Make sure to use fwrite and not fprintff with %s
-        fwrite(buf, len, 1, file);
-        fflush(file);
-        fclose(file);
-    } else
-    {
-        perror("Error opening temporary file for writing");
-        exit(EXIT_FAILURE);
-    }
-
-    // Send back the proto_fname
-    *pb_fname = malloc(strlen(proto_fname) + 1);
-    strcpy(*pb_fname, proto_fname);
-} // end make_tmpfile()
-
-
-// Take in scenario, recs_request_t *, and return json fname
-static void json_serialize(const int scenario, const void *data, char **fname)
+// Take in scenario, recs_request_t *, and return json body_content
+static void json_serialize(const int scenario, const void *data, char **body_content)
 {
     char *json = NULL; // Buffer to store serialized data
-    size_t len; // Length of serialized data
     switch (scenario)
     {
         case SCENARIO_RECS:
@@ -126,7 +89,6 @@ static void json_serialize(const int scenario, const void *data, char **fname)
             strcat(json, "}");
             // if (json)
             //    printf("JSON out test: ---%s---\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
-            len = strlen(json);
             break;
         }
         case SCENARIO_SINGLEREC:
@@ -152,7 +114,6 @@ static void json_serialize(const int scenario, const void *data, char **fname)
             strcat(json, "}");
             // if (json)
             //    printf("JSON out test: ---%s---\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
-            len = strlen(json);
             break;
         }
         case SCENARIO_EVENT:
@@ -183,17 +144,13 @@ static void json_serialize(const int scenario, const void *data, char **fname)
             strcat(json, "}");
             // if (json)
             //    printf("JSON out test: ---%s---\n", json); // {"name":"Mash","star":4,"hits":[2,2,1,3]}
-            len = strlen(json);
             break;
         }
         default: return;
     } // end switch across request types
 
-    // Create the tempfile.
-    make_tmpfile(json, len, fname);
+    *body_content = json;
 
-    // cleanup
-    if (json) free(json);
 } // end json_serialize()
 
 
@@ -299,6 +256,7 @@ static void *json_deserialize(const int scenario, const void *data, char **statu
 
 #ifdef USE_PROTOBUF
 // Make the scenario file and send back the pb_fname to the caller.
+// xxx todo if the json bit worked withougt filesnames, do the protobuf too
 static void protobuf_serialize(const int scenario, const void *data, char **fname)
 {
     void *buf; // Buffer to store serialized data
@@ -481,6 +439,13 @@ unsigned int random_uint(unsigned int limit)
 } // end random_uint()
 
 
+static int needle_compare(const void *a, const void *b)
+{
+    return (*(int*)a - *(int*)b);
+} // end needle_compare()
+
+
+
 // Test bemorehuman
 void TestAccuracy(void)
 {
@@ -501,7 +466,7 @@ void TestAccuracy(void)
 
     size_t i;
     size_t userCounter = 0;
-    long long start, finish, total_time = 0;
+    long long start, finish, total_time = 0, total_time_needle = 0;
 
     // prepare to iterate over all users for whom we need to generate recs for (for steps 1-7)
     size_t numrows, num_held_back;
@@ -545,7 +510,7 @@ void TestAccuracy(void)
     assert(NULL != rat_out);
 
     num_ratings_read = fread(g_big_rat, sizeof(rating_t), BE.num_ratings, rat_out);
-    printf("Number of ratings read from bin file: %lu and we expected %lu to be read.\n",
+    printf("Number of ratings read from bin file: %lu and we expected %" PRIu64 " to be read.\n",
            num_ratings_read, BE.num_ratings);
     fclose(rat_out);
     assert(num_ratings_read == BE.num_ratings);
@@ -617,7 +582,7 @@ void TestAccuracy(void)
     assert(NULL != rat_out);
 
     num_indices_read = fread(g_big_rat_index, sizeof(uint32_t), BE.num_people + 1, rat_out);
-    printf("Number of index locations read from bin file: %lu and we expected %lu to be read.\n",
+    printf("Number of index locations read from bin file: %lu and we expected %" PRIu64 " to be read.\n",
            num_indices_read, BE.num_people + 1);
     fclose(rat_out);
     assert(num_indices_read == BE.num_people + 1);
@@ -653,12 +618,13 @@ void TestAccuracy(void)
         token = strtok(NULL, search);
         if (NULL != token)
         {
-            elements[eltid] = (char *) calloc(strlen(token) + 1, 1); // need to delete \n
-            strncat(elements[eltid], token, strlen(token));
+            const int len = strlen(token) + 1;
+            elements[eltid] = (char *) calloc(len, 1);
+            strlcat(elements[eltid], token, len);
         }
         else
             elements[eltid] = 0;
-        printf("i: %zu, eltid: %d, elements[eltid] is ---%s---\n", i, eltid, elements[eltid]);
+        //printf("i: %zu, eltid: %d, elements[eltid] is ---%s---\n", i, eltid, elements[eltid]);
         i++;
     } // end while fgets'ing lines from elements file
 
@@ -687,6 +653,7 @@ void TestAccuracy(void)
 
     double avg_diff[g_num_testing_people];
     int avg_diff_num_found[g_num_testing_people];
+    int *needle_timings = (int*)malloc(1 * sizeof(int)); // just setting this up for reallocs later
 
     // 0) iterate over the users
     for (; userCounter < g_num_testing_people; userCounter++)
@@ -706,9 +673,8 @@ void TestAccuracy(void)
                 numrows++;
 
         // Begin preparing recs request.
-        uint8_t raw_response[RB_RAW_RESPONSE_SIZE_MAX] = {0};
         size_t len;
-        char *pb_fname = NULL;
+        char *body, *raw_response = NULL;
 
         recs_request_t rr;
         // If protocol is protobuf, only need to send personid b/c recgen is aware of all ratings
@@ -765,22 +731,20 @@ void TestAccuracy(void)
         //
         // Scenario: recs
         //
-        protocol->serialize(SCENARIO_RECS, &rr, (char **) &pb_fname);
+        // Create the body content then we can then pass the body to contact_bemorehuman_server
+        protocol->serialize(SCENARIO_RECS, &rr, (char **) &body);
 
-        // need to clear the memory here for the pb_response, then pass in the pointer
-        memset(raw_response, 0, RB_RAW_RESPONSE_SIZE_MAX);
         start = current_time_micros();
 
         // this is a send/receive part
         if (protocol == &json_protocol)
-            len = call_bemorehuman_server(PROTOCOL_JSON, SCENARIO_RECS, pb_fname, (char *) raw_response);
+            len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_RECS, body, (char **) &raw_response);
         else
-            len = call_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_RECS, pb_fname, (char *) raw_response);
+            len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_RECS, body, (char **) &raw_response);
         finish = current_time_micros();
         total_time += (finish - start);
         printf("Time to get recs for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
-        unlink(pb_fname);
-        free(pb_fname);
+        free(body);
         free(ri);
 
         if (0 == len)
@@ -803,9 +767,6 @@ void TestAccuracy(void)
             // We want to call /event num_held_back times just to test things out. No particular reason for this number.
             for (i = 0; i < num_held_back; i++)
             {
-                // clear out raw_response
-                memset(raw_response, 0, sizeof(raw_response));
-
                 // NOTE: test-accuracy can't currently test for non-explicit events, so we must test for ratings.
                 size_t made_up_rating = i % (size_t) g_ratings_scale;
                 event_t er;
@@ -813,19 +774,18 @@ void TestAccuracy(void)
                 er.eventval = made_up_rating == 0 ? 1 : (unsigned int) made_up_rating;
                 er.personid = (uint32_t) userids[userCounter];
 
-                protocol->serialize(SCENARIO_EVENT, &er, &pb_fname);
+                protocol->serialize(SCENARIO_EVENT, &er, &body);
 
                 // call the server
                 start = current_time_micros();
                 if (protocol == &json_protocol)
-                    len = call_bemorehuman_server(PROTOCOL_JSON, SCENARIO_EVENT, pb_fname, (char *) raw_response);
+                    len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_EVENT, body, (char **) &raw_response);
                 else
-                    len = call_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_EVENT, pb_fname, (char *) raw_response);
+                    len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_EVENT, body, (char **) &raw_response);
 
                 finish = current_time_micros();
                 printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
-                unlink(pb_fname);
-                free(pb_fname);
+                free(body);
                 if (0 == len)
                 {
                     printf("ERROR: length of response from event call is 0. Check server logs.\n");
@@ -833,6 +793,7 @@ void TestAccuracy(void)
                 }
 
                 protocol->deserialize(SCENARIO_EVENT, raw_response, &status, len);
+                free(raw_response);
 
                 // Must check for NULL
                 if (NULL == status)
@@ -860,12 +821,12 @@ void TestAccuracy(void)
         diff_total = 0.0;
         prediction_t *deserialized_data;
 
+        // Save the timings so we can sort and get median
+        needle_timings = (int*)realloc(needle_timings, total_held_back * sizeof(int));
+
         // We need to call dynamic scan num_held_back times.
         for (i = 0; i < num_held_back; i++)
         {
-            // clear out raw_response
-            memset(raw_response, 0, sizeof(raw_response));
-
             rating_item_t *one_ri = malloc(sizeof(rating_item_t));
             one_ri->elementid = (uint32_t) held_back[i];
             // wrong one_ri->elementid = (uint32_t) i + 1;
@@ -873,17 +834,21 @@ void TestAccuracy(void)
             rr.personid = (uint32_t) userids[userCounter];
             rr.ratings_list = one_ri;
 
-            protocol->serialize(SCENARIO_SINGLEREC, &rr, (char **) &pb_fname);
+            protocol->serialize(SCENARIO_SINGLEREC, &rr, (char **) &body);
+
+            start = current_time_micros();
 
             // call the server
             if (protocol == &json_protocol)
-                len = call_bemorehuman_server(PROTOCOL_JSON, SCENARIO_SINGLEREC, pb_fname, (char *) raw_response);
+                len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_SINGLEREC, body, (char **) &raw_response);
             else
-                len = call_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_SINGLEREC, pb_fname, (char *) raw_response);
+                len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_SINGLEREC, body, (char **) &raw_response);
 
-            unlink(pb_fname);
-            free(pb_fname);
+            finish = current_time_micros();
+            total_time_needle += (finish - start);
+            needle_timings[i + total_held_back - num_held_back] = (finish - start);
 
+            free(body);
             recval = 0;
             deserialized_data = NULL;
             deserialized_data = protocol->deserialize(SCENARIO_SINGLEREC, raw_response, &status, len);
@@ -940,8 +905,8 @@ void TestAccuracy(void)
         20 * g_num_testing_people,
         (unsigned long long) bmh_round(((double) total_time) / (double) (20 * g_num_testing_people)));
 
-    printf("Overall timing for needle-in-haystack recs used to determine MAE was not calculated.\n");
-    // 8) collate & print results: specifically, overall average distance from 5 for all the users we're looking at
+
+    // 8) collate & print results
     double overall_avg = 0.0;
     int sum_num_found = 0;
     for (i = 0; i < g_num_testing_people; i++)
@@ -958,6 +923,19 @@ void TestAccuracy(void)
         }
     }
 
+
+    // Sort needle_timings[num_held_back].
+    qsort(needle_timings, total_held_back, sizeof(int), needle_compare);
+
+    // Now the midpoint is the median timing.
+    printf("Median timing for needle-in-haystack recs used to determine MAE: %d micros.\n",
+        needle_timings[total_held_back / 2]);
+
+    // Show the average timing, too.
+    int avg_time_per_needle = total_time_needle / total_held_back;
+    printf("Average timing for needle-in-haystack recs used to determine MAE: %d micros.\n", avg_time_per_needle);
+
+    // Now show some accuracy numbers.
     overall_avg = overall_avg / (double) sum_num_found;
 
     printf(
@@ -989,6 +967,9 @@ void TestAccuracy(void)
         printf(
             "num1: %d, num2: %d, num3: %d, num4: %d, num5: %d, num6: %d, num7: %d, num8: %d, num9: %d, num10: %d\n",
             num1, num2, num3, num4, num5, num6, num7, num8, num9, num10);
+
+    // clean up
+    cleanup_http_client();
 } // end testAccuracy()
 
 

@@ -252,7 +252,7 @@ int main()
 
     // Walk the events and count the quantities of items for each person.
     i = 0;
-    while (i < num_found)
+    while ((uint32_t) i < num_found)
     {
         // Find out how many freq_t guys to allocate for this person.
         // NOTE: This allocation will be larger that what's necessary in every case except when all eltids are unique for this person

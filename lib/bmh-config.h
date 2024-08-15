@@ -57,6 +57,9 @@ extern void itoa(int, char[]);
 extern long bmh_round(double);
 
 #ifndef HAVE_STRLCAT
+#ifdef strlcat
+#define HAVE_STRLCAT
+#else
 // strlcat() - Safely concatenate two strings.
 extern
 size_t                         // O - Length of string
@@ -64,11 +67,13 @@ strlcat(char *restrict,        // O - Destination string
         const char *restrict,  // I - Source string
         size_t);               // I - Size of destination string buffer
 
-#endif // !HAVE_STRLCAT
-
+#endif // strlcat
+#endif // HAVE_STRLCAT
 
 #ifndef HAVE_STRLCPY
-
+#ifdef strlcpy
+#define HAVE_STRLCPY
+#else
 // strlcpy() - Safely copy one string to another.
 extern
 size_t                         // O - Length of string
@@ -76,8 +81,8 @@ strlcpy(char *restrict,        // O - Destination string
         const char *restrict,  // I - Source string
         size_t);               // I - Size of destination string buffer
 
-#endif // !HAVE_STRLCPY
-
+#endif // strlcpy
+#endif // HAVE_STRLCPY
 
 
 #endif // BMH_CONFIG_H

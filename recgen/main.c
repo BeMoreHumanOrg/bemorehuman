@@ -541,7 +541,7 @@ static void internal_singlerec(void *request)
     // This determinism is desired for repeatable accuracy testing. Prolly less desired in production where we embrace more randomness.
     while (!done)
     {
-        if (target_id != ratings[i].elementid)
+        if ((unsigned int) target_id != ratings[i].elementid)
         {
             ratings[i].elementid = g_big_rat[g_big_rat_index[deserialized_data->personid] + i].elementid;
             ratings[i].rating = g_big_rat[g_big_rat_index[deserialized_data->personid] + i].rating;
@@ -859,7 +859,7 @@ static void event(void *request)
             exit(1);
         }
 
-        for (int i = 0; i < g_event_counter; i++)
+        for (int i = 0; i < (int) g_event_counter; i++)
         {
             char line[512];
             // If there's an interesting eventval, add it to the output.

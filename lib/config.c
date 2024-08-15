@@ -27,6 +27,75 @@
 
 bemorehumanConfig_t BE;                       // global storage for the bemorehuman config variables
 
+// begin rmetacache creation helpers
+#define INITIAL_CAPACITY 1000
+#define MAX_LINE 1000
+
+int compare(const void *a, const void *b)
+{
+    return (*(int*)a - *(int*)b);
+} // end compare()
+
+unsigned long count_unique(int *arr, unsigned long size)
+{
+    unsigned long unique_count = 0;
+    for (unsigned long i = 0; i < size; i++)
+        if (i == 0 || arr[i] != arr[i-1])
+            unique_count++;
+    return unique_count;
+} // end count_unique()
+
+void *safe_realloc(void *ptr, size_t size)
+{
+    void *new_ptr = realloc(ptr, size);
+    if (new_ptr == NULL)
+    {
+        perror("Memory reallocation failed. Exiting.");
+        free(ptr);
+        exit(1);
+    }
+    return new_ptr;
+} // end safe_realloc()
+
+// Custom function to parse integers from a string
+int parse_integers(const char* line, int* first_integer, int* second_integer, int location)
+{
+    int count = 0;
+    const char* p = line;
+
+    while (count < 2)
+    {
+        // Skip leading whitespace and commas
+        while (*p == ' ' || *p == '\t' || *p == ',') {
+            p++;
+        }
+
+        // Check if we've reached the end of the line
+        if (*p == '\0' || *p == '\n') {
+            break;
+        }
+
+        // Parse the integer
+        int value = 0;
+        while (*p >= '0' && *p <= '9')
+        {
+            value = value * 10 + (*p - '0');
+            p++;
+        }
+
+        if (count == 0)
+            first_integer[location] = value;
+        else
+            second_integer[location] = value;
+
+        count++;
+    }
+    return count;
+} // end parse_integers()
+
+// end rmetacache creation helpers
+
+
 void load_config_file()
 {
     FILE *fp;
@@ -138,6 +207,10 @@ void load_config_file()
 
     fclose(fp);
 
+    char rm_fname[256], rat_fname[256];
+    sprintf(rm_fname, "%s/%s", BE.working_dir, "rmetacache.txt");
+    sprintf(rat_fname, "%s/%s", BE.working_dir, "ratings.out");
+
     char shell_cmds[4096], cached_tstamp[1024], cur_tstamp[1024];
     char bfr[BUFSIZ];
     bool use_cache = false;
@@ -175,15 +248,23 @@ void load_config_file()
 
 #ifdef __linux__
     // What is the numerical sort character option?
-        char num_sort_char[2] = "g";
+    char num_sort_char[2] = "g";
 
-        // Do we need to add a flag to stat? On Linux no, on NetBSD yes.
-        char stat_flag[3] = "";
+    // Do we need to add a flag to stat? On Linux no, on NetBSD yes.
+    char stat_flag[3] = "";
 #endif
 
 #ifdef __NetBSD__
     // What is the numerical sort character option?
     char num_sort_char[2] = "n";
+
+    // Do we need to add a flag to stat? On Linux no, on NetBSD yes.
+    char stat_flag[4] = "-x ";
+#endif
+
+#ifdef __APPLE__
+    // What is the numerical sort character option?
+    char num_sort_char[2] = "g";
 
     // Do we need to add a flag to stat? On Linux no, on NetBSD yes.
     char stat_flag[4] = "-x ";
@@ -197,6 +278,9 @@ void load_config_file()
         goto cache_check;
     }
 
+// If we're not on Apple, use the shell method. Hopefully we can get rid of shell method errywhere.
+#ifndef __APPLE__
+
     // Check if the ratings file's timestamp is different to what we might already know about.
     // Get 2 things and compare them here in our new C-land.
     // head -n 1 rmetacache.txt; stat ratings.txt | grep 'Modify: ' | cut -d ' ' -f 2,3,4
@@ -207,6 +291,7 @@ void load_config_file()
     strlcat(shell_cmds, stat_flag, sizeof(shell_cmds));
     strlcat(shell_cmds, BE.ratings_file, sizeof(shell_cmds));
     strlcat(shell_cmds, " | grep 'Modify: ' | cut -d ' ' -f 2,3,4", sizeof(shell_cmds));
+
     if ((fp = popen(shell_cmds, "r")) == NULL)
     {
         // There was an error on popen.
@@ -245,7 +330,41 @@ void load_config_file()
 
     fclose(fp);
 
+#else
+
+    // Do Apple-specific stuff here
+
+    // Get first line from rmetacache.
+    char line[128];
+    FILE *fptr;
+    if ((fptr = fopen(rm_fname, "r")) == NULL)
+    {
+        perror("Error: rmetacache file cannot be opened. Exiting.");
+        exit(1);
+    }
+    fgets(line, 128, fptr);
+    fclose(fptr);
+
+    // Get last modified time from ratings.out
+    struct stat file_stat;
+
+    if (stat(rat_fname, &file_stat) == 0)
+    {
+        // Compare the two strings
+        if (!strcmp(line, ctime(&file_stat.st_mtime)) && strlen(line) > 0)
+            use_cache = true;
+    }
+    else
+    {
+        perror("Error getting file stats for ratings.out");
+        exit(1);
+    }
+
+#endif // ifndef __APPLE__
+
 cache_check:
+
+#ifndef __APPLE__
 
     // if we can use the cache, read the values into the BE.
     // head -4 rmetacache.txt
@@ -271,13 +390,13 @@ cache_check:
             {
                 case 0:
                     // ignore the first line which is a timestamp
-                break;
+                    break;
                 case 1:
                     // bfr should have the number of people
                     BE.num_people = atoi(bfr);
                     printf("number of people: %lu\n", BE.num_people);
                     syslog(LOG_INFO, "BE.num_people is %lu", BE.num_people);
-                break;
+                    break;
                 case 2:
                     // bfr should have the number of elts
                     BE.num_elts = atoi(bfr);
@@ -292,15 +411,70 @@ cache_check:
                     break;
 
                 default:
-                break;
+                    break;
             } // end switch
             counter++;
         } // end while
 
         fclose(fp);
     } // end if it's ok to use cache
+
+#else
+
+    // Do Apple-specific stuff here
+    // if we can use the cache, read the values into the BE.
+    // head -4 rmetacache.txt
+    if (use_cache)
+    {
+        if ((fptr = fopen(rm_fname, "r")) == NULL)
+        {
+            perror("Error! rmetacache text file cannot be opened. Exiting.");
+            exit(1);
+        }
+
+        syslog(LOG_INFO, "Reading some BE vars from cache file.");
+
+        // Read text until newline is encountered and store it.
+        counter = 0;
+        while (fgets(line,128,fptr) != NULL)
+        {
+            switch (counter)
+            {
+                case 0:
+                    // ignore the first line which is a timestamp
+                    break;
+                case 1:
+                    // line should have the number of people
+                    BE.num_people = atoi(line);
+                    printf("number of people: %" PRIu64 "\n", BE.num_people);
+                    syslog(LOG_INFO, "BE.num_people is %" PRIu64, BE.num_people);
+                    break;
+                case 2:
+                    // line should have the number of elts
+                    BE.num_elts = atoi(line);
+                    printf("number of elements: %" PRIu64 "\n", BE.num_elts);
+                    syslog(LOG_INFO, "BE.num_elts is %" PRIu64, BE.num_elts);
+                    break;
+                case 3:
+                    // line should have the number of ratings
+                    BE.num_ratings = atoi(line);
+                    printf("number of ratings: %" PRIu64 "\n", BE.num_ratings);
+                    syslog(LOG_INFO, "BE.num_ratings is %" PRIu64, BE.num_ratings);
+                    break;
+                default:
+                    break;
+            } // end switch
+            counter++;
+        } // end while
+
+        fclose(fptr);
+    } // end if use_cache
+
+#endif // #ifndef __APPLE__
+
     else
     {
+#ifndef __APPLE__
         // We can't use cached metadata because it's not there or out of date so create the metadata and the cache.
         // Use popen to get the results of shell commands to get num_people, num_elts, num_ratings.
         // Get num_people, num_elts, num_ratings from ratings file.
@@ -343,33 +517,136 @@ cache_check:
         {
             // There was an error on popen.
             perror("Some problem opening popen stream 3. Bailing in bmh-config");
+            printf("ERROR: FP is broken in config.c in bmhlib. Exiting.\n");
+            exit(1);
+        }
+        // Read 3 lines of results
+        counter = 1;
+#else
+        // Create the rmetacache.
+        if ((fp = fopen(rm_fname, "w")) == NULL)
+        {
+            // There was an error on rmetacache file open.
+            printf("Can't open %s for writing.\n", rm_fname);
+            perror("Some problem creating the rmetacache file. Bailing in bmh-config.");
             exit(1);
         }
 
-        // Read 3 lines of results
+        // Do the stat of ratings.out, looking for Modify time. Put that in rmetacache.txt.
+        if (stat(rat_fname, &file_stat) == 0)
+        {
+            fputs(ctime(&file_stat.st_mtime), fp);
+        }
+        else
+        {
+            perror("Error getting file stats for ratings.out. Exiting.");
+            exit(1);
+        }
+
+        // begin better ratings file parser
+        FILE *file = fopen(rat_fname, "r");
+        if (file == NULL)
+        {
+            perror("Error opening ratigs file. Exiting.");
+            exit(1);
+        }
+
+        unsigned long capacity = INITIAL_CAPACITY;
+        unsigned long count = 0;
+        int *first_column = malloc(capacity * sizeof(int));
+        int *second_column = malloc(capacity * sizeof(int));
+
+        if (first_column == NULL || second_column == NULL)
+        {
+            perror("Initial ratings file read memory allocation failed. Exiting.");
+            free(first_column);
+            free(second_column);
+            fclose(file);
+            exit(1);
+        }
+
+        while (fgets(line, sizeof(line), file))
+        {
+            if (count >= capacity)
+            {
+                capacity *= 2;
+                first_column = safe_realloc(first_column, capacity * sizeof(int));
+                second_column = safe_realloc(second_column, capacity * sizeof(int));
+            }
+
+            // Use a custom parser instead of strtok and atoi
+            int num_int = parse_integers(line, first_column, second_column, count);
+            count++;
+        }
+
+        fclose(file);
+
+        qsort(first_column, count, sizeof(int), compare);
+        qsort(second_column, count, sizeof(int), compare);
+
+        unsigned long unique_first = count_unique(first_column, count);
+        unsigned long unique_second = count_unique(second_column, count);
+
+        printf("Unique people in first column: %lu\n", unique_first);
+        printf("Unique items in second column: %lu\n", unique_second);
+        printf("Total ratings read: %lu\n", count);
+
+        free(first_column);
+        free(second_column);
+
+        // end better ratings file parser
+
+        // Get the number of people and put in rmetacache.
+        char result[10];
+        sprintf(result, "%lu\n", unique_first);
+        fputs(result, fp);
+
+        // Get the number of elements and put in rmetacache.
+        sprintf(result, "%lu\n", unique_second);
+        fputs(result, fp);
+
+        // Get the number of ratings and put in rmetacache.
+        sprintf(result, "%lu\n", count);
+        fputs(result, fp);
+
+        // Close the rmetacache.
+        fclose(fp);
+
+
+        // Open the rmetacache
+        if ((fp = fopen(rm_fname, "r")) == NULL)
+        {
+            // There was an error on rmetacache file open.
+            perror("Some problem opening the rmetacache file. Bailing in bmh-config.");
+            exit(1);
+        }
+        // Read 4 lines of results, throw away the first.
         counter = 0;
+#endif
 
         while (fgets(bfr,BUFSIZ,fp) != NULL)
         {
             switch (counter)
             {
                 case 0:
-                    // bfr should have the number of people
-                    BE.num_people = atoi(bfr);
-                    printf("number of people: %lu\n", BE.num_people);
-                    syslog(LOG_INFO, "BE.num_people is %lu", BE.num_people);
                     break;
                 case 1:
-                    // bfr should have the number of elts
-                    BE.num_elts = atoi(bfr);
-                    printf("number of elements: %lu\n", BE.num_elts);
-                    syslog(LOG_INFO, "BE.num_elts is %lu", BE.num_elts);
+                    // bfr should have the number of people
+                    BE.num_people = atoi(bfr);
+                    printf("number of people from rmc: %" PRIu64 "\n", BE.num_people);
+                    syslog(LOG_INFO, "BE.num_people is %" PRIu64, BE.num_people);
                     break;
                 case 2:
+                    // bfr should have the number of elts
+                    BE.num_elts = atoi(bfr);
+                    printf("number of elements from rmc: %" PRIu64 "\n", BE.num_elts);
+                    syslog(LOG_INFO, "BE.num_elts is %" PRIu64, BE.num_elts);
+                    break;
+                case 3:
                     // bfr should have the number of ratings
                     BE.num_ratings = atoi(bfr);
-                    printf("number of ratings: %lu\n", BE.num_ratings);
-                    syslog(LOG_INFO, "BE.num_ratings is %lu", BE.num_ratings);
+                    printf("number of ratings from rmc: %" PRIu64 "\n", BE.num_ratings);
+                    syslog(LOG_INFO, "BE.num_ratings is %" PRIu64, BE.num_ratings);
                     break;
 
                 default:
@@ -410,7 +687,7 @@ cache_check:
                     if (len > 0)
                     {
                         printf("output from valence files removal is: ---%s---\n", bfr);
-                        syslog(LOG_INFO, "BE.num_people is %lu", BE.num_people);
+                        syslog(LOG_INFO, "BE.num_people is %" PRIu64, BE.num_people);
                     }
                 break;
 

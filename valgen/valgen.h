@@ -39,6 +39,8 @@
 #include <syslog.h>
 #include <float.h>
 #include <time.h>
+#include <inttypes.h>
+
 #include "bmh-config.h"
 
 // Defines

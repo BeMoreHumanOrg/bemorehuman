@@ -35,11 +35,6 @@ set(MY_SOURCE_FILES
 
 set(SOURCE_FILES ${MY_SOURCE_FILES})
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    include_directories(/opt/pkg/include)
-    link_directories(/opt/pkg/lib)
-endif()
-
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     link_directories(/usr/lib)
 endif()
@@ -64,7 +59,7 @@ set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_CO
 # set max log level
 set_target_properties(valgen PROPERTIES COMPILE_DEFINITIONS "MAX_LOG_LEVEL=LOG_LEVEL_INFO")
 
-if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
+if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
    # set rpath
    set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()

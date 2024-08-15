@@ -33,9 +33,9 @@
 os_name=$(uname)
 numeric_opt="-g"
 
-if [ "$os_name" = "NetBSD" ] ; then
-    numeric_opt="-n"
-fi
+#if [ "$os_name" = "NetBSD" ] || [ "$os_name" = "Darwin" ] ; then
+#    numeric_opt="-n"
+#fi
 
 cut -f 2,3 ratings.out | cut -d, -f 2,3 | sort "$numeric_opt" | cut -f 1 | cut -d, -f 1 | uniq > tmp1.out
 
@@ -44,17 +44,19 @@ awk '{printf("%d,%s\n", NR, $0)}' tmp1.out > bmhid-glid.out
 rm tmp1.out
 
 # Now update the ratings.out file to use the bmhid.
-sort "$numeric_opt" -t , -k 2 ratings.out > ratings_k2_sort.out
-sort "$numeric_opt" -t , -k 2 bmhid-glid.out > bg_k2_sort.out
+sort "$numeric_opt" -t, -k 2 ratings.out > ratings_k2_sort.out
+sort "$numeric_opt" -t, -k 2 bmhid-glid.out > bg_k2_sort.out
 
-join  -t , -1 2 -2 2 -o 2.1 1.1 2.3 bg_k2_sort.out ratings_k2_sort.out > normalized.out
+join -t, -1 2 -2 2 -o 2.1,1.1,2.3 bg_k2_sort.out ratings_k2_sort.out > normalized.out
 
 # final sort to make it look nice if we need to debug by hand
 if [ "$os_name" = "Linux" ] ; then
-    sort -t , -k 1V,2V normalized.out > ratings.out
+    sort -t, -k 1V,2V normalized.out > ratings.out
 fi
-if [ "$os_name" = "NetBSD" ] ; then
-    sort "$numeric_opt" -t , -k 1,2 normalized.out > ratings.out
+if [ "$os_name" = "NetBSD" ] || [ "$os_name" = "Darwin" ]; then
+    # sort "$numeric_opt" -t, -k1,2 normalized.out > ratings.out
+    # claude  sort -t, -k1n -k2n normalized.out > ratings.out
+    sort -t, -k1g -k2g normalized.out > ratings.out
 fi
 
 # remove temp files

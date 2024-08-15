@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
     }
 
     // Listen for incoming connections
-    if (listen(server_fd, 5) < 0)
+    if (listen(server_fd, 5) < 0)  // use SOMAXCONN here?
     {
         perror("Error listening for incoming connections");
         exit(EXIT_FAILURE);
@@ -181,7 +181,6 @@ int main(int argc, char *argv[])
 
             // POST /path HTTP/1.1\r\n
             // Host: 127.0.0.1
-            // User-Agent: curl/7.87.0
             // Content-Type: application/octet-stream\r\n
             // accept: application/octet-stream
             // Content-Length: 5\r\n
@@ -248,7 +247,7 @@ int main(int argc, char *argv[])
             // Construct server address and make socket
             int sockfd;
 
-#ifdef __NetBSD__
+#if defined(__NetBSD__) || defined(__APPLE__)
             struct sockaddr_un process_address = {0, AF_UNIX, "/tmp/bemorehuman/recgen.sock"};
 #else
             struct sockaddr_un process_address = {AF_UNIX, "/tmp/bemorehuman/recgen.sock"};
@@ -320,7 +319,8 @@ int main(int argc, char *argv[])
                     perror("Error from inside recgen for some reason.");
                     if (record.content_length > 0)
                     {
-                        strncat(response, (char*) record.content, record.content_length);
+                        // Parens needed on Mac OSX, benign elsewhere
+                        (strncat)(response, (char*) record.content, record.content_length);
                         res_content_length += record.content_length;
                     }
                     break;
@@ -333,7 +333,8 @@ int main(int argc, char *argv[])
                     if (record.content_length > 0)
                     {
                         read(sockfd, &record.content, record.content_length);
-                        strncat(response, (char*) record.content, record.content_length);
+                        // Parens needed on Mac OSX, benign elsewhere
+                        (strncat)(response, (char*) record.content, record.content_length);
                         res_content_length += record.content_length;
                     }
                     break;
@@ -342,13 +343,19 @@ int main(int argc, char *argv[])
 
             // can't print application/octet-stream! if (strlen(response) > 0)
             if (strlen(stderr_resp) > 0)
-            {
                 fprintf(stderr, "Received stderr response: %s\n", stderr_resp);
-            }
+
+#ifdef USE_PROTOBUF
             // Send the response from the recgen process back to the client
             char response_header[] = "HTTP/1.1 200 OK\r\n"
                                      "Content-Type: application/octet-stream\r\n"
                                      "Content-Length: ";
+#else
+            // Send the response from the recgen process back to the client
+            char response_header[] = "HTTP/1.1 200 OK\r\n"
+                                     "Content-Type: application/json\r\n"
+                                     "Content-Length: ";
+#endif
 
             // Coalescing...
             char output[1536];

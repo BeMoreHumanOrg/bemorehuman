@@ -34,5 +34,6 @@ cut -d ',' -f 3 ratings.csv | awk '{print $1*2}' > tmp2.txt
 paste -d ',' tmp1.txt tmp2.txt > ratings.out
 rm tmp1.txt tmp2.txt
 
-# get rid of header line
-sed -i '1d' ratings.out
+# get rid of header line (do it this way to make Mac happy)
+sed '1d' ratings.out > r.tmp; mv r.tmp ratings.out
+

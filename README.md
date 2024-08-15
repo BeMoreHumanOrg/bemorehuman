@@ -185,10 +185,10 @@ a database easily if you like.
 
 #### Build Dependencies
 - for test-accuracy:
-  - curl
   - openssl dev package
     - on Debian or Ubuntu, it's libssl-dev
     - on Void Linux, it's openssl-devel
+    - on Mac, it's openssl installed like: "brew install openssl"
 - (OPTIONAL) A webserver with fcgi capability. I like nginx for the simple fact it is commonly used and has an
 excellent event model. Bemorehuman includes its own web server suitable for dev/test.
   - FastCGI library (only if you need to integrate with your own web server):

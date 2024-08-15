@@ -31,6 +31,8 @@
 #include <string.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <inttypes.h>
+
 #ifdef USE_FCGI
 #include <fcgiapp.h>
 #endif
