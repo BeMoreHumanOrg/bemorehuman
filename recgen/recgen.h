@@ -148,7 +148,12 @@ a += ((unsigned) b); \
 //
 typedef uint8_t element_id_t[3]; // 24 bits for y (in the x,y pair -- x is in the bind_seg)
 typedef uint32_t exp_elt_t; // convenient way to deal with element id's
-typedef int64_t bb_ind_t; // type of each elt in the bb, -1 value means no value
+typedef struct
+{
+    uint64_t offset; // type of each elt in the bb, -1 (UINT64_MAX) value means no value
+    uint64_t count; // how many elements are there?
+} bb_ind_t;
+
 typedef struct // slope/offset compression helper type
 {
     int8_t guy;

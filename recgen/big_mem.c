@@ -143,7 +143,11 @@ static void populate_ds()
     pull_from_files(true);
 
     // Walk the g_bind_seg_ds and initialize the whole thing.
-    for (uint64_t i = 0; i < BE.num_elts; i++) g_bind_seg_ds[i] = -1;
+    for (uint64_t i = 0; i <= BE.num_elts; i++)
+    {
+        g_bind_seg_ds[i].count = 0;
+        g_bind_seg_ds[i].offset = UINT64_MAX;
+    }
 
     // Sort the DS_temp.
     quicksort_iterative(g_bb_ds_temp,  g_num_confident_valences);
@@ -183,9 +187,13 @@ static void populate_ds()
         if (exp_id_2 != prev_exp_id_2)
         {
             // Need to do the below bit (num_elts - 1) times.
-            g_bind_seg_ds[exp_id_2] = (bb_ind_t) i;
+            g_bind_seg_ds[exp_id_2].offset = i;
             prev_exp_id_2 = exp_id_2;
         }
+
+        // add to count
+        g_bind_seg_ds[exp_id_2].count++;
+
     } // end for loop over valences
     
     free (g_bb_ds_temp);
@@ -353,7 +361,11 @@ static int pull_from_files(bool createDS)
     g_valence_count = 0;
 
     // Walk the bind_seg and initialize it.
-    for (i = 0; i < BE.num_elts; i++) g_bind_seg[i] = -1;
+    for (i = 0; i <= BE.num_elts; i++)
+    {
+        g_bind_seg[i].count = 0;
+        g_bind_seg[i].offset = UINT64_MAX;
+    }
     syslog(LOG_INFO, "BE.num_elts is %" PRIu64, BE.num_elts);
 
     syslog(LOG_INFO, "BE.valence_files_dir is ---%s---", BE.working_dir);
@@ -983,9 +995,13 @@ static int pull_from_files(bool createDS)
         // Create an index of x-value starting positions in Beast.
         if (id_1 != prev_id_1)
         {
-            g_bind_seg[id_1] = (bb_ind_t) g_valence_count;
+            g_bind_seg[id_1].offset = g_valence_count;
             prev_id_1 = id_1;
         }
+
+        // add to count in bind_seg
+        g_bind_seg[id_1].count++;
+
         g_valence_count++;
 
         // Spit something out every 10 M to generally track progress.
@@ -1265,8 +1281,8 @@ bool  load_beast(int read_method, bool ds_load)
         return (false);
     }
 
-    // Create the bind_seg.
-    g_bind_seg = (bb_ind_t *) calloc((unsigned long) BE.num_elts, sizeof(bb_ind_t));
+    // Create the bind_seg. +1 b/c indexing starts at 1
+    g_bind_seg = (bb_ind_t *) calloc((unsigned long) BE.num_elts + 1, sizeof(bb_ind_t));
     if (g_bind_seg == 0)
     {
         syslog(LOG_ERR, "FATAL ERROR: Out of memory when creating bind_seg.");
@@ -1291,8 +1307,8 @@ bool  load_beast(int read_method, bool ds_load)
             syslog(LOG_ERR, "FATAL ERROR: Out of memory when creating bb_ds.");
             return (false);
         }
-        // Create the bind_seg_ds.
-        g_bind_seg_ds = (bb_ind_t *) calloc((unsigned long) BE.num_elts, sizeof(bb_ind_t));
+        // Create the bind_seg_ds. +1 b/c indexing starts at 1
+        g_bind_seg_ds = (bb_ind_t *) calloc((unsigned long) BE.num_elts + 1, sizeof(bb_ind_t));
         if (g_bind_seg_ds == 0)
         {
             syslog(LOG_ERR, "FATAL ERROR: Out of memory when creating bind_seg_ds.");

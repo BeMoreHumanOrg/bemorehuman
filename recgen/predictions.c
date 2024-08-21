@@ -133,9 +133,9 @@ static void create_pcrs(const int8_t *tiny_slopes,
 } // end create_pcrs()
 
 // Tally gets called once for each live user and calculates possible recommendation values for the other elements
-static void tally(valence_t *bb,
+static void tally(const valence_t *bb,
                   const bb_ind_t *bind_seg,
-                  valence_t *bb_ds,
+                  const valence_t *bb_ds,
                   const bb_ind_t *bind_seg_ds,
                   int rat_length,
                   rating_t ur[])
@@ -156,23 +156,16 @@ static void tally(valence_t *bb,
         // Iterate over, e.g., (1..232,233) given 233 as userRated passed in to Tally()
 
         const bb_ind_t  y_start = bind_seg_ds[user_rated];
-
         exp_elt_t user_rated_next = user_rated;
-
-        while (-1 == bind_seg_ds[++user_rated_next])
+        while (UINT64_MAX == bind_seg_ds[++user_rated_next].offset)
             if (user_rated_next == (BE.num_elts - 1)) break;
 
-        bb_ind_t y_start_next = bind_seg_ds[user_rated_next];
-
         // Do we have valences with a user_rated in the y position?
-        if (y_start > -1)
+        if (y_start.offset != UINT64_MAX)
         {
-            // If y_start_next is -1, there is no next y.
-            if (-1 == y_start_next)
-                y_start_next = (bb_ind_t) (g_num_confident_valences - 1);
-
-            const valence_t *const end_ptr = &bb_ds[y_start_next];
-            for (bb_ptr = &bb_ds[y_start]; bb_ptr < end_ptr; ++bb_ptr)
+            const valence_t *const start_ptr = &bb_ds[y_start.offset];
+            const valence_t *const end_ptr = start_ptr + y_start.count;
+            for (bb_ptr = start_ptr; bb_ptr < end_ptr; bb_ptr++)
             {
                 // Get the prediction_to_make value from the val_key.
                 prediction_to_make = GET_ELT(bb_ptr->eltid);
@@ -188,23 +181,15 @@ static void tally(valence_t *bb,
         // Get the starting point of the fixed x value in the Beast.
         const bb_ind_t  x_start = bind_seg[user_rated];
         user_rated_next = user_rated;
-        while (-1 == bind_seg[++user_rated_next])
-        {
-            if (user_rated_next == (BE.num_elts - 1))
-                break;
-        }
-
-        bb_ind_t x_start_next = bind_seg[user_rated_next];
+        while (UINT64_MAX == bind_seg[++user_rated_next].offset)
+            if (user_rated_next == (BE.num_elts - 1)) break;
 
         // Do we have valences with a user_rated in the x position?
-        if (x_start > -1)
+        if (x_start.offset != UINT64_MAX)
         {
-            // If x_start_next is -1, there is no next x.
-            if (-1 == x_start_next)
-                x_start_next = (bb_ind_t) (g_num_confident_valences - 1);
-
-            const valence_t *const end_ptr = &bb[x_start_next];
-            for (bb_ptr = &bb[x_start]; bb_ptr < end_ptr; bb_ptr++)
+            const valence_t *const start_ptr = &bb[x_start.offset];
+            const valence_t *const end_ptr = start_ptr + x_start.count;
+            for (bb_ptr = start_ptr; bb_ptr < end_ptr; bb_ptr++)
             {
                 // Get the prediction_to_make value from the val_key.
                 prediction_to_make = GET_ELT(bb_ptr->eltid);
