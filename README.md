@@ -234,7 +234,7 @@ These are the binaries that get created automatically in the above cmake process
 
 - bmhlib (shared library)
 - ratgen
-- hum (our custom HTTP server)
+- hum (our custom tiny HTTP server)
 - valgen
 - recgen
 - test-accuracy
@@ -345,13 +345,16 @@ This dir is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf 
   - test your installation with the GroupLens data
 - Given that you've followed Step 5 above, you invoke bemorehuman like so:
 
-      ~/src/bemorehuman/bemorehuman -s 10 -t 20      # takes about 7 minutes to complete
+      ~/src/bemorehuman/bemorehuman -s 10 -t 20      # takes about 4 minutes to complete
 
 - If you're on Linux and bemorehuman complains about not finding libraries, you might need to run "sudo ldconfig" to
 enable the new libraries you just built to be visible to bemorehuman.
 
 - There are more ways to run the bemorehuman script (and its components) depending on your situation. See the
 bemorehuman script and source files for more details.
+
+- When you see "sleep 30" in the output, you're done! By default, the script will check every 30 seconds for new event data. You
+can safely press "Control-C" to stop the bemorehuman script at this point and check the results as mentioned below.
 
 Expected Results:
 
@@ -374,7 +377,7 @@ when you ask people to rate things as one to five stars.
 In our testing, these kinds of numbers are what we see on average no matter how many people are chosen at
 random from the test-accuracy client. Your results with this dataset should be similar.
 
-If your results are significantly different, such as an MAE of 2.5 or more when running "bemorehuman exp10" with
+If your results are significantly different, such as an MAE of 2.5 or more when running "bemorehuman -s 10 -t 20" with
 this Movielens dataset, then something's not right. In this situation, you may want to erase the contents of your
 working directory (by default it's /opt/bemorehuman) and start again after the download part in step 5.
 
