@@ -246,30 +246,6 @@ void load_config_file()
 
     fclose(fp);
 
-#ifdef __linux__
-    // What is the numerical sort character option?
-    char num_sort_char[2] = "g";
-
-    // Do we need to add a flag to stat? On Linux no, on NetBSD yes.
-    char stat_flag[3] = "";
-#endif
-
-#ifdef __NetBSD__
-    // What is the numerical sort character option?
-    char num_sort_char[2] = "n";
-
-    // Do we need to add a flag to stat? On Linux no, on NetBSD yes.
-    char stat_flag[4] = "-x ";
-#endif
-
-#ifdef __APPLE__
-    // What is the numerical sort character option?
-    char num_sort_char[2] = "g";
-
-    // Do we need to add a flag to stat? On Linux no, on NetBSD yes.
-    char stat_flag[4] = "-x ";
-#endif
-
     // Ok, now we have bool rmeta_exists to tell us if the rmetacache.txt exists.
     // If there's no cache, we should skip the next popen and set use_cache to false
     if (rmeta_exists == false)
@@ -277,62 +253,6 @@ void load_config_file()
         use_cache = false;
         goto cache_check;
     }
-
-// If we're not on Apple, use the shell method. Hopefully we can get rid of shell method errywhere.
-#ifndef __APPLE__
-
-    // Check if the ratings file's timestamp is different to what we might already know about.
-    // Get 2 things and compare them here in our new C-land.
-    // head -n 1 rmetacache.txt; stat ratings.txt | grep 'Modify: ' | cut -d ' ' -f 2,3,4
-
-    strlcpy(shell_cmds, "head -n 1 ", sizeof(shell_cmds));
-    strlcat(shell_cmds, BE.working_dir, sizeof(shell_cmds));
-    strlcat(shell_cmds, "/rmetacache.txt; stat ", sizeof(shell_cmds));
-    strlcat(shell_cmds, stat_flag, sizeof(shell_cmds));
-    strlcat(shell_cmds, BE.ratings_file, sizeof(shell_cmds));
-    strlcat(shell_cmds, " | grep 'Modify: ' | cut -d ' ' -f 2,3,4", sizeof(shell_cmds));
-
-    if ((fp = popen(shell_cmds, "r")) == NULL)
-    {
-        // There was an error on popen.
-        perror("Some problem opening popen stream 1. Bailing in bmh-config");
-        exit(1);
-    }
-
-    // Read 2 lines of results
-    counter = 0;
-    while (fgets(bfr,BUFSIZ,fp) != NULL)
-    {
-        switch (counter)
-        {
-            case 0:
-            // bfr should have the string of possible cached timestamp
-            strlcpy(cached_tstamp, bfr, sizeof(cached_tstamp));
-            break;
-
-            case 1:
-            // bfr should have the string of current ratings file timestamp
-            strlcpy(cur_tstamp, bfr, sizeof(cur_tstamp));
-            break;
-
-            default:
-            break;
-        } // end switch
-        counter++;
-    } // end while
-
-    // Now compare those 2 guys
-    if ((!strcmp(cached_tstamp, cur_tstamp)) && strlen(cur_tstamp) > 0)
-    {
-        // They're equal so it's safe to read the cached values.
-        use_cache = true;
-    }
-
-    fclose(fp);
-
-#else
-
-    // Do Apple-specific stuff here
 
     // Get first line from rmetacache.
     char line[128];
@@ -359,69 +279,9 @@ void load_config_file()
         perror("Error getting file stats for ratings.out");
         exit(1);
     }
-
-#endif // ifndef __APPLE__
-
+    
 cache_check:
 
-#ifndef __APPLE__
-
-    // if we can use the cache, read the values into the BE.
-    // head -4 rmetacache.txt
-    if (use_cache)
-    {
-        strlcpy(shell_cmds, "head -4 ", sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.working_dir, sizeof(shell_cmds));
-        strlcat(shell_cmds, "/rmetacache.txt", sizeof(shell_cmds));
-        if ((fp = popen(shell_cmds, "r")) == NULL)
-        {
-            // There was an error on popen.
-            perror("Some problem opening popen stream 2. Bailing in bmh-config");
-            exit(1);
-        }
-
-        syslog(LOG_INFO, "Reading some BE vars from cache.");
-
-        // Read 3 lines of results
-        counter = 0;
-        while (fgets(bfr,BUFSIZ,fp) != NULL)
-        {
-            switch (counter)
-            {
-                case 0:
-                    // ignore the first line which is a timestamp
-                    break;
-                case 1:
-                    // bfr should have the number of people
-                    BE.num_people = atoi(bfr);
-                    printf("number of people: %lu\n", BE.num_people);
-                    syslog(LOG_INFO, "BE.num_people is %lu", BE.num_people);
-                    break;
-                case 2:
-                    // bfr should have the number of elts
-                    BE.num_elts = atoi(bfr);
-                    printf("number of elements: %lu\n", BE.num_elts);
-                    syslog(LOG_INFO, "BE.num_elts is %lu", BE.num_elts);
-                    break;
-                case 3:
-                    // bfr should have the number of ratings
-                    BE.num_ratings = atoi(bfr);
-                    printf("number of ratings: %lu\n", BE.num_ratings);
-                    syslog(LOG_INFO, "BE.num_ratings is %lu", BE.num_ratings);
-                    break;
-
-                default:
-                    break;
-            } // end switch
-            counter++;
-        } // end while
-
-        fclose(fp);
-    } // end if it's ok to use cache
-
-#else
-
-    // Do Apple-specific stuff here
     // if we can use the cache, read the values into the BE.
     // head -4 rmetacache.txt
     if (use_cache)
@@ -469,12 +329,8 @@ cache_check:
 
         fclose(fptr);
     } // end if use_cache
-
-#endif // #ifndef __APPLE__
-
     else
     {
-#ifndef __APPLE__
         // We can't use cached metadata because it's not there or out of date so create the metadata and the cache.
         // Use popen to get the results of shell commands to get num_people, num_elts, num_ratings.
         // Get num_people, num_elts, num_ratings from ratings file.
@@ -487,42 +343,6 @@ cache_check:
         // We could be in a bad place if recgen called us, and we set num_elts based on new ratings file, but valences are old.
         // Invalidate (remove) valences.out, valence_cache, num_confident_valences.out
 
-
-        // Here we're creating the timestamp & cache.
-        strlcpy(shell_cmds, "stat ", sizeof(shell_cmds));
-        strlcat(shell_cmds, stat_flag, sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.ratings_file, sizeof(shell_cmds));
-        strlcat(shell_cmds, " | grep 'Modify: ' | cut -d' ' -f2,3,4 > ", sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.working_dir, sizeof(shell_cmds));
-        strlcat(shell_cmds, "/rmetacache.txt; sort -", sizeof(shell_cmds));
-        strlcat(shell_cmds, num_sort_char, sizeof(shell_cmds));
-        strlcat(shell_cmds, " ", sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.ratings_file, sizeof(shell_cmds));
-        strlcat(shell_cmds, " | cut -f 1 | cut -d, -f 1 | uniq | wc -l | sed -e 's/^[ \t]*//' | tee -a ", sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.working_dir, sizeof(shell_cmds));
-        strlcat(shell_cmds, "/rmetacache.txt; cut -f 2,3 ", sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.ratings_file, sizeof(shell_cmds));
-        strlcat(shell_cmds, " | cut -d, -f 2,3 | sort -", sizeof(shell_cmds));
-        strlcat(shell_cmds, num_sort_char, sizeof(shell_cmds));
-        strlcat(shell_cmds, " | cut -f 1 | cut -d, -f 1 | uniq | wc -l | sed -e 's/^[ \t]*//' | tee -a ", sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.working_dir, sizeof(shell_cmds));
-        strlcat(shell_cmds, "/rmetacache.txt; wc -l ", sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.ratings_file, sizeof(shell_cmds));
-        strlcat(shell_cmds, " | sed -e 's/^[ \t]*//' | cut -d ' ' -f 1 | tee -a ", sizeof(shell_cmds));
-        strlcat(shell_cmds, BE.working_dir, sizeof(shell_cmds));
-        strlcat(shell_cmds, "/rmetacache.txt", sizeof(shell_cmds));
-        syslog(LOG_INFO, "shell_cmds is ---%s---", shell_cmds);
-
-        if ((fp = popen(shell_cmds, "r")) == NULL)
-        {
-            // There was an error on popen.
-            perror("Some problem opening popen stream 3. Bailing in bmh-config");
-            printf("ERROR: FP is broken in config.c in bmhlib. Exiting.\n");
-            exit(1);
-        }
-        // Read 3 lines of results
-        counter = 1;
-#else
         // Create the rmetacache.
         if ((fp = fopen(rm_fname, "w")) == NULL)
         {
@@ -612,7 +432,6 @@ cache_check:
         // Close the rmetacache.
         fclose(fp);
 
-
         // Open the rmetacache
         if ((fp = fopen(rm_fname, "r")) == NULL)
         {
@@ -622,7 +441,6 @@ cache_check:
         }
         // Read 4 lines of results, throw away the first.
         counter = 0;
-#endif
 
         while (fgets(bfr,BUFSIZ,fp) != NULL)
         {
@@ -698,10 +516,6 @@ cache_check:
         } // end while
 
         fclose(fp);
-
-
-
-
     } // end else we can't use the cache
 
     // Try printing it out to verify that it loaded ok.
