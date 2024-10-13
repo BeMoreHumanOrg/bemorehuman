@@ -296,13 +296,12 @@ bool predictions(rating_t ur[], int rat_length, prediction_t recs[], int num_rec
     // Are we recommending top numRecs items?
     if (0 == eltid)
     {
-#if defined(__linux__) || defined(__APPLE__)
-        qsort(g_workingset, BE.num_elts, sizeof(prediction_t), predcmp);
-#endif
 
-#if defined(__NetBSD__)
-        // On NetBSD, qsort is very slow for this particular situation. Mergesort is much faster.
+#if defined(__NetBSD__) || defined(__FreeBSD__)
+        // On NetBSD and FreeBSD, qsort is very slow in this situation. Mergesort is much faster.
         mergesort(g_workingset, BE.num_elts, sizeof(prediction_t), predcmp);
+#else
+        qsort(g_workingset, BE.num_elts, sizeof(prediction_t), predcmp);
 #endif
         
         // Copy workingset to recs. Note that numRecs is small. The bit below

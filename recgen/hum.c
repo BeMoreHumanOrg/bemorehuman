@@ -247,10 +247,10 @@ int main(int argc, char *argv[])
             // Construct server address and make socket
             int sockfd;
 
-#if defined(__NetBSD__) || defined(__APPLE__)
-            struct sockaddr_un process_address = {0, AF_UNIX, "/tmp/bemorehuman/recgen.sock"};
-#else
+#if defined(__linux__) 
             struct sockaddr_un process_address = {AF_UNIX, "/tmp/bemorehuman/recgen.sock"};
+#else
+            struct sockaddr_un process_address = {0, AF_UNIX, "/tmp/bemorehuman/recgen.sock"};
 #endif
             sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
             if (sockfd < 0) {

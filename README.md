@@ -86,7 +86,9 @@ equation. We think that the only way to provide a good recommendation is to be 1
 on what the receiver might want. The web has too much possibility to only offer people mass-
 marketed or even group-marketed content.
 
-- Recommendations based on popularity - On a per-recommendation basis, bemorehuman allows you
+- Multi-platform - We've tested bemorehuman to run successfully on Linux, Mac, FreeBSD, and NetBSD.
+
+- Recommendations based on popularity of item - On a per-recommendation basis, bemorehuman allows you
 to only show recommendations that are at a certain level of popularity. Sometimes people want
 to see obscure things or sometimes we want to see popular things. It's very easy to tell
 the recommendations generator "only give me recommendations of fairly obscure things."
@@ -187,6 +189,7 @@ a database easily if you like.
 - for test-accuracy:
   - openssl dev package
     - on Debian or Ubuntu, it's libssl-dev
+    - on FreeBSD, it's openssl
     - on Void Linux, it's openssl-devel
     - on Mac, it's openssl installed like: "brew install openssl"
 - (OPTIONAL) A webserver with fcgi capability. I like nginx for the simple fact it is commonly used and has an

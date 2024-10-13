@@ -471,7 +471,8 @@ void TestAccuracy(void)
     // prepare to iterate over all users for whom we need to generate recs for (for steps 1-7)
     size_t numrows, num_held_back;
     unsigned int curelement_int;
-    int userid, currat, held_back[4096], elts_to_send[4096], rats_to_send[4096];
+    uint32_t userid;
+    int currat, held_back[4096], elts_to_send[4096], rats_to_send[4096];
     int ratings[MAX_PREDS_PER_PERSON], num_found = 0, total_held_back = 0;
     double diff_total;
 
@@ -484,6 +485,7 @@ void TestAccuracy(void)
     // Begin loading ratings.
     // Create the big_rat.
     g_big_rat = (rating_t *) calloc(BE.num_ratings, sizeof(rating_t));
+
     if (g_big_rat == 0)
     {
         printf("FATAL ERROR: Out of memory when creating g_big_rat.\n");
@@ -692,7 +694,7 @@ void TestAccuracy(void)
         // Iterate over the ratings for this user.
         // NOTE: old protobuf had a cap of 200
         size_t starter = g_big_rat_index[userid];
-        for (i = 0; i < (numrows < 200 ? numrows : 200); i++)
+	for (i = 0; i < (numrows < 200 ? numrows : 200); i++)
         {
             curelement_int = g_big_rat[starter + i].elementid;
             currat = g_big_rat[starter + i].rating;
@@ -706,7 +708,8 @@ void TestAccuracy(void)
                 held_back[num_held_back] = (int) curelement_int;
                 num_held_back++;
                 total_held_back++;
-            } else
+            }
+	    else
             {
                 // populate array with the elts to send
                 elts_to_send[send_counter] = (signed) curelement_int;

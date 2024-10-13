@@ -65,7 +65,9 @@ add_executable(test-accuracy ${SOURCE_FILES})
 # set compile flags for my source file only
 set(MY_COMPILE_FLAGS "${COMPILE_FLAGS} -Wno-padded -Wno-vla  -Wno-declaration-after-statement -Wno-reserved-id-macro ")
 
-set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wall -Wextra")
+# -O1, -g for valgrind
+# set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wall -Wextra -O1 -g")
+set(MY_COMPILE_FLAGS "${MY_COMPILE_FLAGS} -Wall -Wextra -O3")
 
 set_source_files_properties(${MY_SOURCE_FILES} PROPERTIES COMPILE_FLAGS "${MY_COMPILE_FLAGS} ${APPFLAGS}")
 

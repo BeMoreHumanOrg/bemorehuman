@@ -44,13 +44,20 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+
 #ifdef USE_PROTOBUF
 #include "../recgen/recgen.pb-c.h"
 #endif
+
 #include "bmh-config.h"
 #include <openssl/rand.h>
 #include <yyjson.h>
 #include <syslog.h>
+
+#ifdef __FreeBSD__
+#include <netinet/in.h>
+#include <sys/socket.h>
+#endif
 
 /*
  * Constants. These are the bits in the code that are likely to change with a change in what's being recommended.
@@ -91,19 +98,19 @@ enum { PROTOCOL_PROTOBUF, PROTOCOL_JSON };
 #define LOWEST_POP_NUMBER 1
 #define HIGHEST_POP_NUMBER 7
 
-/*
- * Typedefs
- */
+//
+// Typedefs
+//
 
+// These match what valgen and recgen produce/expect.
 typedef struct
 {
-    int userid;
+    uint32_t userid;
     uint32_t elementid;
-    short rating;
-    char padding[2];
+    uint8_t rating;
+    uint8_t padding[3];
 } rating_t;
 
-// These are same as in recgen.
 typedef struct
 {
     uint32_t elementid;

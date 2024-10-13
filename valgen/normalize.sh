@@ -53,8 +53,7 @@ join -t, -1 2 -2 2 -o 2.1,1.1,2.3 bg_k2_sort.out ratings_k2_sort.out > normalize
 if [ "$os_name" = "Linux" ] ; then
     sort -t, -k 1V,2V normalized.out > ratings.out
 fi
-if [ "$os_name" = "NetBSD" ] || [ "$os_name" = "Darwin" ]; then
-    # sort "$numeric_opt" -t, -k1,2 normalized.out > ratings.out
+if [ "$os_name" = "NetBSD" ] || [ "$os_name" = "Darwin" ] || [ "$os_name" = "FreeBSD" ]; then
     # claude  sort -t, -k1n -k2n normalized.out > ratings.out
     sort -t, -k1g -k2g normalized.out > ratings.out
 fi
