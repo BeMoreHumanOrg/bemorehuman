@@ -185,29 +185,6 @@ typedef uint8_t popularity_t; // range is 1-7 where 1 is very popular and 7 is o
 
 typedef struct
 {
-    int userid;
-    exp_elt_t elementid;
-    short rating;
-    char padding[2];
-} rating_t;
-
-typedef struct
-{
-    exp_elt_t personid;
-    exp_elt_t elementid;
-    exp_elt_t eventval;
-} event_t;
-
-typedef struct
-{
-    exp_elt_t elementid;
-    int rating_count;
-    int rating;
-    uint32_t rating_accum;
-} prediction_t;
-
-typedef struct
-{
     int fcgi_fd;
 } FCGI_info_t;
 
@@ -245,20 +222,6 @@ typedef struct
     void *(*serialize)(const int scenario, const void *data, const char *status, size_t *len); // conversion
     void *(*deserialize)(const int scenario, const size_t, const void *data, int *status); // conversion
 } protocol_interface;
-
-typedef struct
-{
-    uint32_t elementid;
-    int32_t rating;
-} rating_item_t;
-
-typedef struct
-{
-    uint32_t personid;
-    int32_t popularity;
-    int32_t num_ratings;
-    rating_item_t *ratings_list;
-} recs_request_t;
 
 // error messages
 enum

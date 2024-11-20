@@ -38,6 +38,11 @@ if (USE_PROTOBUF)
     set(OTHER_SOURCE_FILES
             recgen.pb-c.c
             recgen.pb-c.h)
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        include_directories(/opt/homebrew/include)
+        link_directories(/opt/homebrew/lib)
+    endif()
 endif()
 
 # MY_SOURCE_FILES are things I wrote and so I want to be stricter about compilation flags
@@ -52,6 +57,11 @@ set(SOURCE_FILES ${MY_SOURCE_FILES} ${OTHER_SOURCE_FILES})
 include_directories(vendor/yyjson/src)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    include_directories(/usr/local/include)
+    link_directories(/usr/local/lib)
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
     include_directories(/usr/local/include)
     link_directories(/usr/local/lib)
 endif()

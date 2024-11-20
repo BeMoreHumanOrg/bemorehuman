@@ -40,7 +40,7 @@ static bool g_test_event_call = false;
 //
 
 // Take in scenario, recs_request_t *, and return json body_content
-static void json_serialize(const int scenario, const void *data, char **body_content)
+static void json_serialize(const int scenario, const void *data, char **body_content, size_t *body_len)
 {
     char *json = NULL; // Buffer to store serialized data
     switch (scenario)
@@ -48,8 +48,12 @@ static void json_serialize(const int scenario, const void *data, char **body_con
         case SCENARIO_RECS:
         {
             const recs_request_t *rr = (const recs_request_t *) data;
-            // 32 non-data bytes/rating_item_t roughly
-            json = (char *) malloc(32 * (unsigned) rr->num_ratings * sizeof(rating_item_t) + 400);
+
+            if (rr != NULL)
+            {
+                // 32 non-data bytes/rating_item_t roughly
+                json = (char *) malloc(32 * (unsigned) rr->num_ratings * sizeof(rating_item_t) + 400);
+            }
 
             strcpy(json, "{");
             if (data)
@@ -131,13 +135,8 @@ static void json_serialize(const int scenario, const void *data, char **body_con
                 strcat(json, char_int);
 
                 // add eltid
-                strcat(json, ",\"elementid\":");
-                itoa((signed) er->elementid, char_int);
-                strcat(json, char_int);
-
-                // add eventval
-                strcat(json, ",\"eventval\":");
-                itoa((signed) er->eventval, char_int);
+                strcat(json, ",\"eltid\":");
+                itoa((signed) er->eltid, char_int);
                 strcat(json, char_int);
             } // end if we have any event to send
 
@@ -150,6 +149,7 @@ static void json_serialize(const int scenario, const void *data, char **body_con
     } // end switch across request types
 
     *body_content = json;
+    *body_len = strlen(json);
 
 } // end json_serialize()
 
@@ -256,11 +256,9 @@ static void *json_deserialize(const int scenario, const void *data, char **statu
 
 #ifdef USE_PROTOBUF
 // Make the scenario file and send back the pb_fname to the caller.
-// xxx todo if the json bit worked withougt filesnames, do the protobuf too
-static void protobuf_serialize(const int scenario, const void *data, char **fname)
+static void protobuf_serialize(const int scenario, const void *data, char **body_content, size_t *body_len)
 {
     void *buf; // Buffer to store serialized data
-    size_t len; // Length of serialized data
     switch (scenario)
     {
         case SCENARIO_RECS:
@@ -273,8 +271,8 @@ static void protobuf_serialize(const int scenario, const void *data, char **fnam
             recs_out.popularity = rr->popularity;
 
             // Finish constructing the protobuf message.
-            len = recs__get_packed_size(&recs_out); // This is calculated packing length
-            buf = malloc(len); // Allocate required serialized buffer length
+            *body_len = recs__get_packed_size(&recs_out); // This is calculated packing length
+            buf = malloc(*body_len); // Allocate required serialized buffer length
             recs__pack(&recs_out, buf); // Pack the data
             break;
         }
@@ -286,12 +284,11 @@ static void protobuf_serialize(const int scenario, const void *data, char **fnam
 
             Event event_out = EVENT__INIT;
             event_out.personid = er->personid;
-            event_out.elementid = er->elementid;
-            event_out.eventval = er->eventval; // just passing this along; could be 0
+            event_out.elementid = er->eltid;
 
             // Finish constructing the protobuf message.
-            len = event__get_packed_size(&event_out); // This is calculated packing length
-            buf = malloc(len); // Allocate required serialized buffer length
+            *body_len = event__get_packed_size(&event_out); // This is calculated packing length
+            buf = malloc(*body_len); // Allocate required serialized buffer length
             event__pack(&event_out, buf); // Pack the data
             break;
         }
@@ -306,20 +303,15 @@ static void protobuf_serialize(const int scenario, const void *data, char **fnam
             singlerec_out.elementid = (uint32_t) rr->ratings_list->elementid;
 
             // Finish constructing the protobuf message.
-            len = internal_single_rec__get_packed_size(&singlerec_out);
-            buf = malloc(len);
+            *body_len = internal_single_rec__get_packed_size(&singlerec_out);
+            buf = malloc(*body_len);
             internal_single_rec__pack(&singlerec_out, buf);
             break;
         }
         default: return;
     } // end switch across request types
 
-    // Create the tempfile.
-    make_tmpfile(buf, len, fname);
-
-    // cleanup
-    free(buf);
-
+    *body_content = buf;
     return;
 } // end protobuf_serialize()
 
@@ -414,7 +406,13 @@ static protocol_interface protobuf_protocol =
 };
 #endif
 
+#ifdef USE_PROTOBUF
+static protocol_interface *protocol = &protobuf_protocol;
+#else
 static protocol_interface *protocol = &json_protocol;
+#endif
+
+
 
 // Provide a random integer in [0, limit)
 unsigned int random_uint(unsigned int limit)
@@ -661,10 +659,10 @@ void TestAccuracy(void)
     for (; userCounter < g_num_testing_people; userCounter++)
     {
         userid = userids[userCounter];
-        printf("userid is %d\n", userid);
+        printf("userid is %u\n", userid);
 
         // Compute how much we have done and print it out.
-        printf("*** %zu people werw processed out of %zu for this run. ***\n", userCounter, g_num_testing_people);
+        printf("*** %zu people were processed out of %zu for this run. ***\n", userCounter, g_num_testing_people);
         printf("*** %f percent of people have been processed for this run. ***\n",
                floor(100 * (double) userCounter / (double) g_num_testing_people));
 
@@ -694,7 +692,7 @@ void TestAccuracy(void)
         // Iterate over the ratings for this user.
         // NOTE: old protobuf had a cap of 200
         size_t starter = g_big_rat_index[userid];
-	for (i = 0; i < (numrows < 200 ? numrows : 200); i++)
+	    for (i = 0; i < (numrows < 200 ? numrows : 200); i++)
         {
             curelement_int = g_big_rat[starter + i].elementid;
             currat = g_big_rat[starter + i].rating;
@@ -709,7 +707,7 @@ void TestAccuracy(void)
                 num_held_back++;
                 total_held_back++;
             }
-	    else
+	        else
             {
                 // populate array with the elts to send
                 elts_to_send[send_counter] = (signed) curelement_int;
@@ -735,18 +733,20 @@ void TestAccuracy(void)
         // Scenario: recs
         //
         // Create the body content then we can then pass the body to contact_bemorehuman_server
-        protocol->serialize(SCENARIO_RECS, &rr, (char **) &body);
+        size_t body_length;
+        protocol->serialize(SCENARIO_RECS, &rr, (char **) &body, &body_length);
 
         start = current_time_micros();
 
         // this is a send/receive part
         if (protocol == &json_protocol)
-            len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_RECS, body, (char **) &raw_response);
+            len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_RECS, body, body_length, (char **) &raw_response);
         else
-            len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_RECS, body, (char **) &raw_response);
+            len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_RECS, body, body_length, (char **) &raw_response);
         finish = current_time_micros();
         total_time += (finish - start);
-        printf("Time to get recs for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
+
+        printf("Time to get recs for user %u with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
         free(body);
         free(ri);
 
@@ -770,24 +770,21 @@ void TestAccuracy(void)
             // We want to call /event num_held_back times just to test things out. No particular reason for this number.
             for (i = 0; i < num_held_back; i++)
             {
-                // NOTE: test-accuracy can't currently test for non-explicit events, so we must test for ratings.
-                size_t made_up_rating = i % (size_t) g_ratings_scale;
                 event_t er;
-                er.elementid = (uint32_t) i + 1;
-                er.eventval = made_up_rating == 0 ? 1 : (unsigned int) made_up_rating;
+                er.eltid = (uint32_t) i + 1;
                 er.personid = (uint32_t) userids[userCounter];
 
-                protocol->serialize(SCENARIO_EVENT, &er, &body);
+                protocol->serialize(SCENARIO_EVENT, &er, &body, &body_length);
 
                 // call the server
                 start = current_time_micros();
                 if (protocol == &json_protocol)
-                    len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_EVENT, body, (char **) &raw_response);
+                    len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_EVENT, body, body_length, (char **) &raw_response);
                 else
-                    len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_EVENT, body, (char **) &raw_response);
+                    len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_EVENT, body, body_length, (char **) &raw_response);
 
                 finish = current_time_micros();
-                printf("Time to send event for user %d with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
+                printf("Time to send event for user %u with %zu ratings is %lld micros.\n", userid, numrows, finish - start);
                 free(body);
                 if (0 == len)
                 {
@@ -825,7 +822,17 @@ void TestAccuracy(void)
         prediction_t *deserialized_data;
 
         // Save the timings so we can sort and get median
-        needle_timings = (int*)realloc(needle_timings, total_held_back * sizeof(int));
+        void *tmp = (int*)realloc(needle_timings, total_held_back * sizeof(int));
+        if (NULL == tmp)
+        {
+            free(needle_timings);
+            printf("Can't realloc. Exiting.\n");
+            exit (-1);
+        }
+        else
+        {
+            needle_timings = tmp;
+        }
 
         // We need to call dynamic scan num_held_back times.
         for (i = 0; i < num_held_back; i++)
@@ -837,15 +844,15 @@ void TestAccuracy(void)
             rr.personid = (uint32_t) userids[userCounter];
             rr.ratings_list = one_ri;
 
-            protocol->serialize(SCENARIO_SINGLEREC, &rr, (char **) &body);
+            protocol->serialize(SCENARIO_SINGLEREC, &rr, (char **) &body, &body_length);
 
             start = current_time_micros();
 
             // call the server
             if (protocol == &json_protocol)
-                len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_SINGLEREC, body, (char **) &raw_response);
+                len = contact_bemorehuman_server(PROTOCOL_JSON, SCENARIO_SINGLEREC, body, body_length, (char **) &raw_response);
             else
-                len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_SINGLEREC, body, (char **) &raw_response);
+                len = contact_bemorehuman_server(PROTOCOL_PROTOBUF, SCENARIO_SINGLEREC, body, body_length, (char **) &raw_response);
 
             finish = current_time_micros();
             total_time_needle += (finish - start);
@@ -853,13 +860,12 @@ void TestAccuracy(void)
 
             free(body);
             recval = 0;
-            deserialized_data = NULL;
             deserialized_data = protocol->deserialize(SCENARIO_SINGLEREC, raw_response, &status, len);
 
             // unpack deserialized_data to get the recval
             if (deserialized_data) recval = deserialized_data->rating;
 
-            printf("For user %d holding back elt \"%-32s\", id %6d, rating %3d, recval %3d, delta %3d\n",
+            printf("For user %u holding back elt \"%-32s\", id %6d, rating %3d, recval %3d, delta %3d\n",
                    userid, elements[held_back[i]], held_back[i], ratings[i], recval, abs(recval - ratings[i]));
 
             // add an if check here to see if bemorehuman said anything about this one. 0 or -1 maybe? Dunno.
@@ -892,7 +898,7 @@ void TestAccuracy(void)
         // print some summary info
         avg_diff[userCounter] = diff_total / num_found;
         avg_diff_num_found[userCounter] = num_found;
-        printf("For the user %d we are on average %f away for the elts we held back\n", userid, avg_diff[userCounter]);
+        printf("For the user %u we are on average %f away for the elts we held back\n", userid, avg_diff[userCounter]);
 
         // if no elts found, mark it for later removal from calculations.
         if (0 == num_found)
@@ -902,7 +908,7 @@ void TestAccuracy(void)
     } // end iterating over the users
 
     printf(
-        "\nTotal time is %lld micros (%lld millis) to generate a total of %lu strongest recs, or %lld micros per rec.\n",
+        "\nTotal time is %lld micros (%lld millis) to generate a total of %lu strongest recs, or %llu micros per rec.\n",
         total_time,
         total_time / 1000,
         20 * g_num_testing_people,

@@ -60,7 +60,7 @@ extern long bmh_round(double);
 #ifdef strlcat
 #define HAVE_STRLCAT
 #else
-// strlcat() - Safely concatenate two strings.
+// strlcat() - More safely concatenate two strings.
 extern
 size_t                         // O - Length of string
 strlcat(char *restrict,        // O - Destination string
@@ -74,7 +74,7 @@ strlcat(char *restrict,        // O - Destination string
 #ifdef strlcpy
 #define HAVE_STRLCPY
 #else
-// strlcpy() - Safely copy one string to another.
+// strlcpy() - More safely copy one string to another.
 extern
 size_t                         // O - Length of string
 strlcpy(char *restrict,        // O - Destination string
@@ -83,6 +83,46 @@ strlcpy(char *restrict,        // O - Destination string
 
 #endif // strlcpy
 #endif // HAVE_STRLCPY
+
+//
+// The following typedefs are the data structure interface between the producer (bemorehuman) and
+// the consumer you use to get recommendations (e.g. test-accuarcy).
+//
+typedef struct
+{
+    uint32_t userid;
+    uint32_t elementid;
+    uint8_t rating;
+    uint8_t padding[3];
+} rating_t;
+
+typedef struct
+{
+    uint32_t elementid;
+    int32_t rating;
+} rating_item_t;
+
+typedef struct
+{
+    uint32_t personid;
+    uint32_t eltid;
+} event_t;
+
+typedef struct
+{
+    uint32_t personid;
+    int32_t popularity;
+    int32_t num_ratings;
+    rating_item_t *ratings_list;
+} recs_request_t;
+
+typedef struct
+{
+    uint32_t elementid;
+    int rating_count;
+    int rating;
+    uint32_t rating_accum;
+} prediction_t;
 
 
 #endif // BMH_CONFIG_H

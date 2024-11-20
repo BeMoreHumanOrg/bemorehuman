@@ -737,7 +737,7 @@ const ProtobufCMessageDescriptor recs_response__descriptor =
   (ProtobufCMessageInit) recs_response__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor event__field_descriptors[3] =
+static const ProtobufCFieldDescriptor event__field_descriptors[2] =
 {
   {
     "personid",
@@ -763,28 +763,15 @@ static const ProtobufCFieldDescriptor event__field_descriptors[3] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
-  {
-    "eventval",
-    3,
-    PROTOBUF_C_LABEL_NONE,
-    PROTOBUF_C_TYPE_UINT32,
-    0,   /* quantifier_offset */
-    offsetof(Event, eventval),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
 };
 static const unsigned event__field_indices_by_name[] = {
   1,   /* field[1] = elementid */
-  2,   /* field[2] = eventval */
   0,   /* field[0] = personid */
 };
 static const ProtobufCIntRange event__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor event__descriptor =
 {
@@ -794,7 +781,7 @@ const ProtobufCMessageDescriptor event__descriptor =
   "Event",
   "",
   sizeof(Event),
-  3,
+  2,
   event__field_descriptors,
   event__field_indices_by_name,
   1,  event__number_ranges,

@@ -44,6 +44,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
     link_directories(/usr/pkg/lib /usr/local/lib)
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    link_directories(/usr/local/lib)
+endif()
+
 add_executable(valgen ${SOURCE_FILES})
 
 # set compile flags for my source file only
@@ -69,4 +73,3 @@ target_link_libraries(${PROJECT_NAME} m pthread bmh)
 install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION bin
         )
-

@@ -67,17 +67,13 @@ message RecsResponse
 }
 
 // Event
-// NOTE: in proto3 all fields are optional so no need to specify that
-//       the 'eventval' field below is optional
 message Event
 {
     uint32 personid = 1;
     uint32 elementid = 2;
-    uint32 eventval = 3;
 }
 message EventResponse
 {
     int32 result = 1;
     string status = 2;
 }
-

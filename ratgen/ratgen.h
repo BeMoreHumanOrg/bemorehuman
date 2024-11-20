@@ -38,13 +38,6 @@
 
 // typedefs
 
-// This represents a single event.
-typedef struct
-{
-    uint32_t personid;
-    uint32_t eltid;
-} event_t;
-
 // This holds the elt count for one person's different elts.
 typedef struct
 {

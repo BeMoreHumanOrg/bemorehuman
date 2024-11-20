@@ -244,12 +244,8 @@ static void *json_deserialize(const int scenario, const size_t len, const void *
             er->personid = yyjson_get_int(personid);
 
             // Get root["elementid"]
-            yyjson_val *elementid = yyjson_obj_get(root, "elementid");
-            er->elementid = yyjson_get_int(elementid);
-
-            // Get root["eventval"]
-            yyjson_val *eventval = yyjson_obj_get(root, "elementid");
-            er->eventval = yyjson_get_int(eventval);
+            yyjson_val *eltid = yyjson_obj_get(root, "eltid");
+            er->eltid = yyjson_get_int(eltid);
 
             // Free the doc
             yyjson_doc_free(doc);
@@ -428,8 +424,7 @@ static void *protobuf_deserialize(const int scenario, const size_t len, const vo
                 return NULL;
             }
             er->personid = message_in->personid;
-            er->elementid = message_in->elementid;
-            er->eventval = message_in->eventval;
+            er->eltid = message_in->elementid;
             event__free_unpacked(message_in, NULL);
             *status = STATUS_OK;
             return er;
@@ -831,17 +826,16 @@ static void event(void *request)
     }
 
     // Does the passed-in elementid not match any element we know about?
-    if (deserialized_data->elementid > BE.num_elts)
+    if (deserialized_data->eltid > BE.num_elts)
     {
-        syslog(LOG_ERR, "elementid from client is incorrect: ---%d---", deserialized_data->elementid);
+        syslog(LOG_ERR, "elementid from client is incorrect: ---%d---", deserialized_data->eltid);
         status = ELEMENTID_FROM_CLIENT_INCORRECT;
         goto finish_up;
     }
 
     // Save the event to our in-mem structure;
     g_events_to_persist[g_event_counter].personid = deserialized_data->personid;
-    g_events_to_persist[g_event_counter].elementid = deserialized_data->elementid;
-    g_events_to_persist[g_event_counter].eventval = deserialized_data->eventval;
+    g_events_to_persist[g_event_counter].eltid = deserialized_data->eltid;
     g_event_counter++;
 
     // Are we ready to persist now?
@@ -862,16 +856,9 @@ static void event(void *request)
         for (int i = 0; i < (int) g_event_counter; i++)
         {
             char line[512];
-            // If there's an interesting eventval, add it to the output.
-            if (g_events_to_persist[i].eventval != 0)
-                sprintf(line, "%d,%d,%d\n",
-                        g_events_to_persist[i].personid,
-                        g_events_to_persist[i].elementid,
-                        g_events_to_persist[i].eventval);
-            else
-                sprintf(line, "%d,%d\n",
-                        g_events_to_persist[i].personid,
-                        g_events_to_persist[i].elementid);
+            sprintf(line, "%d,%d\n",
+                    g_events_to_persist[i].personid,
+                    g_events_to_persist[i].eltid);
 
             // Put the line in the output file
             fwrite(line, strlen(line), 1, fp);

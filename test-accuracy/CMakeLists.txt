@@ -34,8 +34,12 @@ if (USE_PROTOBUF)
     # OTHER_SOURCE_FILES are things I didn't write and so I want to relax a bit with compilation flags
     set(OTHER_SOURCE_FILES
             ../recgen/recgen.pb-c.c
-            ../recgen/recgen.pb-c.h
-            )
+            ../recgen/recgen.pb-c.h)
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        include_directories(/opt/homebrew/include)
+        link_directories(/opt/homebrew/lib)
+    endif()
 endif()
 
 set(MY_SOURCE_FILES
@@ -58,6 +62,11 @@ endif()
 if (CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
     include_directories(/usr/pkg/include)
     link_directories(/usr/pkg/lib /usr/local/lib)
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    include_directories(/usr/local/include)
+    link_directories(/usr/local/lib)
 endif()
 
 add_executable(test-accuracy ${SOURCE_FILES})

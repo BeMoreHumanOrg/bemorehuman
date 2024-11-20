@@ -105,10 +105,11 @@ int extract_content_length(const char *response)
 
 // This routine calls the bemorehuman server and returns the response.
 //
-// inputs: int protocol, int scenario, char *fname;
-// outputs: char *raw_response;
-// return: unsigned long number of chars read
-unsigned long contact_bemorehuman_server(int protocol, int scenario, const char *req_body, char **raw_response)
+// inputs: int protocol, int scenario, const char *req_body, const size_t req_body_len
+// outputs: char **raw_response;
+// return: unsigned long number of bytes read in response
+unsigned long contact_bemorehuman_server(int protocol, int scenario, const char *req_body,
+                                         const size_t req_body_len, char **raw_response)
 {
     int port;
 
@@ -161,24 +162,22 @@ unsigned long contact_bemorehuman_server(int protocol, int scenario, const char 
         exit(1);
     }
 
-       // Connect to server
+    // Connect to server
     if (connect(client->socket, (struct sockaddr *) &client->server_addr, sizeof(client->server_addr)) < 0)
     {
         perror("Connection Failed");
         return -1;
     }
 
-    int content_length = strlen(req_body);
-
     // Prepare HTTP POST request with specific path
     char request[MAX_BUFFER_SIZE];
     snprintf(request, sizeof(request),
              "POST %s HTTP/1.1\r\n"
              "Host: %s\r\n"
-             "Content-Type: application/json\r\n"
-             "Content-Length: %d\r\n"
+             "Content-Type: application/%s\r\n"
+             "Content-Length: %zu\r\n"
              "\r\n"
-             "%s", path, server_loc, content_length, req_body);
+             "%s", path, server_loc, protocol_string, req_body_len, req_body);
 
     // Send HTTP request
     send(client->socket, request, strlen(request), 0);
