@@ -203,6 +203,7 @@ excellent event model. Bemorehuman includes its own web server suitable for dev/
   - on Debian or Ubuntu, "sudo apt install libprotobuf-c-dev protobuf-c-compiler"
   - on Void Linux, install protobuf-c-devel
   - on NetBSD, install devel/protobuf-c
+  - on FreeBSD, install protobuf-c
   - OR on any OS from github.com/protobuf-c
   - NOTE: please add -DUSE_PROTOBUF=ON to the first cmake command below
 

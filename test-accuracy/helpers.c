@@ -88,11 +88,32 @@ void cleanup_http_client()
 } // end cleanup_http_client()
 
 
-// Content-Length extraction function
+// Find needle in haystack, in a case-independent manner
+char* b_stristr(const char* haystack, const char* needle)
+{
+    do
+    {
+        const char* h = haystack;
+        const char* n = needle;
+        while (tolower((unsigned char) *h) == tolower((unsigned char ) *n) && *n)
+        {
+            h++;
+            n++;
+        }
+        if (*n == 0)
+        {
+            return (char *) haystack;
+        }
+    } while (*haystack++);
+    return 0;
+} // end b_stristr()
+
+
+// Content-Length extraction function (from request header)
 int extract_content_length(const char *response)
 {
-    const char *header = "Content-Length:";
-    char *start = strcasestr(response, header);
+    const char *header = "content-length:";
+    char *start = b_stristr(response, header);
     if (start)
     {
         start += strlen(header);
@@ -215,8 +236,6 @@ unsigned long contact_bemorehuman_server(int protocol, int scenario, const char 
     char headers[MAX_BUFFER_SIZE] = {0};
     strncpy(headers, buffer, header_length);
 
-    // printf("Received headers:\n%s\n", headers);
-
     // Extract Content-Length
     int content_length_response = extract_content_length(headers);
     if (content_length_response < 0)
@@ -224,8 +243,6 @@ unsigned long contact_bemorehuman_server(int protocol, int scenario, const char 
         printf("Content-Length header not found\n");
         return -1;
     }
-
-    // printf("Content-Length: %d\n", content_length_response);
 
     // Process response body
     char *response_body = malloc(content_length_response + 1);
