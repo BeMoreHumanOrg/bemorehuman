@@ -155,6 +155,8 @@ for license details. bemorehuman is fully Reuse Software-compliant.
 
 [![REUSE status](https://api.reuse.software/badge/github.com/BeMoreHumanOrg/bemorehuman)](https://api.reuse.software/info/github.com/BeMoreHumanOrg/bemorehuman)
 
+[![CMake on multiple platforms](https://github.com/BeMoreHumanOrg/bemorehuman/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/BeMoreHumanOrg/bemorehuman/actions/workflows/cmake-multi-platform.yml)
+
 ## Installation instructions for bemorehuman
 
 Steps involved:
