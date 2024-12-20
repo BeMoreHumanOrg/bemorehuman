@@ -383,7 +383,7 @@ when you ask people to rate things as one to five stars.
 In our testing, these kinds of numbers are what we see on average no matter how many people are chosen at
 random from the test-accuracy client. Your results with this dataset should be similar.
 
-If your results are significantly different, such as an MAE of 2.5 or more when running "bemorehuman -s 10 -t 20" with
+If your results are significantly different, such as an MAE of 2.7 or more when running "bemorehuman -s 10 -t 20" with
 this Movielens dataset, then something's not right. In this situation, you may want to erase the contents of your
 working directory (by default it's /opt/bemorehuman) and start again after the download part in step 5.
 
