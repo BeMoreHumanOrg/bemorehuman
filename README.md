@@ -183,7 +183,7 @@ For these instructions, let's say the source you clone or download/unpack reside
 
 #### Background info
 
-- Bemorehuman doesn't deal with databases. Just flat files. This way we have zero database
+- Bemorehuman doesn't deal with databases. We only deal with text files. This way we have zero database
 dependencies. That said, I've tried to allow the flat files bemorehuman generates to be imported into
 a database easily if you like.
 
