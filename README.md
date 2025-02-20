@@ -16,7 +16,7 @@ system via a REST interface and receive recommendations in real-time.
 
 ## Why is it useful?
 
-People don't want to waste time getting poor quality recommedations. Often, when the word 
+We don't want to waste time getting poor quality recommedations. Often, when the word 
 "recommendation" is used what's really meant is "popular thing for your demographic." If you're
 lucky, that is. If you're not lucky, recommendation can easily mean "different models of
 the thing you just bought" or "whatever we're paid to promote this week." Our software takes
