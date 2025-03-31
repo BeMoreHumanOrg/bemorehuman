@@ -353,7 +353,7 @@ This dir is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf 
 
       ~/src/bemorehuman/bemorehuman -s 10 -t 20      # takes about 4 minutes to complete
 
-- If you're on Linux and bemorehuman complains about not finding libraries, you might need to run "sudo ldconfig" to
+- NOTE: If you're on Linux and bemorehuman complains about not finding libraries, you might need to run "sudo ldconfig" to
 enable the new libraries you just built to be visible to bemorehuman.
 
 - There are more ways to run the bemorehuman script (and its components) depending on your situation. See the
