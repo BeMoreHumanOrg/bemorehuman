@@ -29,7 +29,7 @@ useful.
 
 Here is a simple example of how bemorehuman works:
 
-- What do you want to recommend? Is it books? Movies? Classified ads? Things that work well
+- What do you want to recommend? Books? Movies? Classified ads? Things that work well
 are things that are unique, don't change, and have a persistent id. And of course you need
 the legal right to use that data for your specific purposes. For example, "red wine" is
 a good category of things to recommend because there are lots of different red wines such as
