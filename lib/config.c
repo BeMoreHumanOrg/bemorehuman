@@ -251,6 +251,16 @@ void load_config_file()
     if (rmeta_exists == false)
     {
         use_cache = false;
+        
+        // only continue if there's a ratings file.
+        // check for ratings file
+        FILE *file = fopen(rat_fname, "r");
+        if (file == NULL)
+        {
+            // at this point, ratgen called us and we need to generate the ratings file.
+            syslog(LOG_INFO, "no ratings file. done in bmh lib.");
+            return;
+        }
         goto cache_check;
     }
 

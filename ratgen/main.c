@@ -106,7 +106,6 @@ int eventcmp(const void* p1, const void* p2)
     }
 } // end eventcmp()
 
-
 int main()
 {
     // Set up logging.
@@ -129,39 +128,37 @@ int main()
         
     FILE *fp;
     char fname[255];
-
-    // Do a wc on the input file events.txt to get number of lines
-    char shell_cmds[4096];
     char bfr[BUFSIZ];
     uint32_t num_lines = 0;
     uint32_t num_found = 0;
-
-    //  wc -l  events.txt | cut -d ' ' -f 1
-    strlcpy(shell_cmds, "wc -l ", sizeof(shell_cmds));
-    strlcat(shell_cmds, BE.working_dir, sizeof(shell_cmds));
-    strlcat(shell_cmds, "/events.txt | cut -d ' ' -f 1", sizeof(shell_cmds));
-    syslog(LOG_INFO, "shell_cmds is ---%s---", shell_cmds);
-    if ((fp = popen(shell_cmds, "r")) == NULL)
-    {
-        // There was an error on popen.
-        perror("Some problem opening popen stream 0. Bailing in ratgen.");
-        exit(1);
+    
+    strlcpy(bfr, BE.working_dir, sizeof(bfr));
+    strlcat(bfr, "/events.txt", sizeof(bfr));
+    syslog(LOG_INFO, "bfr is ---%s---", bfr);
+    
+    fp = fopen(bfr, "r");
+    if (fp == NULL) {
+        perror("Error opening events file directly");
+        return 1;
     }
 
-    // Read 1 line of results.
-    while (fgets(bfr, BUFSIZ, fp) != NULL)
-    {
-        num_lines = strtol(bfr, NULL, 10);
-    } // end while
+    char ch;
+
+    // Read through the file character by character to count newlines
+    while ((ch = fgetc(fp)) != EOF) {
+        if (ch == '\n') {
+            num_lines++;
+        }
+    }
+
+    fclose(fp);
 
     syslog(LOG_INFO, "num_lines is %d", num_lines);
     if (0 == num_lines)
     {
-        syslog(LOG_ERR, "Couldn't get the num_lines of input file %s. Exiting.", fname);
+        syslog(LOG_ERR, "Couldn't get the num_lines of input file events.txt. Exiting.");
         exit (-1);
     }
-
-    pclose(fp);
 
     // Set up events input file.
     strlcpy(fname, BE.events_file, sizeof(fname));
@@ -315,9 +312,9 @@ int main()
             // 1.b.3 We now have a rating for that person / element
 
             // 1.b.4 Persist the rating info.
-            // Export to flat file: tab-delimited personid, productid, rating
+            // Export to flat file: comma-delimited personid, productid, rating
             char out_buffer[256];
-            sprintf(out_buffer, "%u\t%u\t%d\n", personid, freqs[j].eltid, rating);
+            sprintf(out_buffer, "%u,%u,%d\n", personid, freqs[j].eltid, rating);
             fwrite(out_buffer, strlen(out_buffer), 1, fp);
 
         } // end for loop across distinct elements for this person

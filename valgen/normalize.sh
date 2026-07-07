@@ -40,12 +40,12 @@ numeric_opt="-g"
 cut -f 2,3 ratings.out | cut -d, -f 2,3 | sort "$numeric_opt" | cut -f 1 | cut -d, -f 1 | uniq > tmp1.out
 
 # Number each row, and that's the bmhid
-awk '{printf("%d,%s\n", NR, $0)}' tmp1.out > bmhid-glid.out
+awk '{printf("%d,%s\n", NR, $0)}' tmp1.out > bmhid-otherid.out
 rm tmp1.out
 
 # Now update the ratings.out file to use the bmhid.
 sort "$numeric_opt" -t, -k 2 ratings.out > ratings_k2_sort.out
-sort "$numeric_opt" -t, -k 2 bmhid-glid.out > bg_k2_sort.out
+sort "$numeric_opt" -t, -k 2 bmhid-otherid.out > bg_k2_sort.out
 
 join -t, -1 2 -2 2 -o 2.1,1.1,2.3 bg_k2_sort.out ratings_k2_sort.out > normalized.out
 
@@ -54,7 +54,7 @@ if [ "$os_name" = "Linux" ] ; then
     sort -t, -k 1V,2V normalized.out > ratings.out
 fi
 if [ "$os_name" = "NetBSD" ] || [ "$os_name" = "Darwin" ] || [ "$os_name" = "FreeBSD" ]; then
-    # claude  sort -t, -k1n -k2n normalized.out > ratings.out
+    # sort -t, -k1n -k2n normalized.out > ratings.out
     sort -t, -k1g -k2g normalized.out > ratings.out
 fi
 
@@ -66,8 +66,8 @@ rm ratings_k2_sort.out
 # Now we want to create a file that has bmhid and movie name.
 
 # File names
-file1="bmhid-glid.out"
-file2="movies.csv"
+file1="bmhid-otherid.out"
+file2="product.csv"
 
 # Temporary file for output
 temp_file="temp_output.csv"
