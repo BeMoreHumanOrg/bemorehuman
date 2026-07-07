@@ -323,15 +323,15 @@ To prepare the Movielens data:
 
       ./convert_to_ints.sh                    # takes about 10 seconds
     
-- Copy the new Grouplens ratings data file ratings.out and movie file movies.csv to the bemorehuman working directory. 
+- Copy the new Grouplens ratings data file ratings.out and movie file product.csv to the bemorehuman working directory. 
 This dir is specified as "working_dir" in the /etc/bemorehuman/bemorehuman.conf file. Default is /opt/bemorehuman
 
       cp ratings.out /opt/bemorehuman
-      cp movies.csv /opt/bemorehuman
+      cp movies.csv /opt/bemorehuman/product.csv
 
 - Copy and run "normalize.sh" in /opt/bemorehuman. This script will ensure the movie ids are in sequence,
   which is important. This script also creates a little translation file so you can match original Grouplens
-  id's to new bemorehuman id's. This file is called bmhid-glid.out
+  id's to new bemorehuman id's. This file is called bmhid-otherid.out
 
       cd /opt/bemorehuman
       cp ~/src/bemorehuman/valgen/normalize.sh .
