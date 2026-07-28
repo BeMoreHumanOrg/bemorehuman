@@ -224,12 +224,11 @@ excellent event model. Bemorehuman includes its own web server suitable for dev/
 
 Follow the regular cmake way of building:
 
-     cd ~/src/bemorehuman    # or wherever the bemorehuman source is on your machine
-     mkdir build; cd build
-     cmake ..
-     cmake --build .   
-     sudo make install       # root is used to install the include/library/binaries and create config file under /etc)
-    
+     cd ~/src/bemorehuman         # or wherever the bemorehuman source is on your machine
+     cmake -B build  
+     cmake --build build
+     sudo cmake --install build   # root is used to install the include/library/binaries and create config file under /etc) 
+
      # if you are using your own HTTP server such as nginx, add "-DUSE_FCGI=ON" to the first cmake above 
      cmake -DUSE_FCGI=ON ..  
      # if you want to use protobuf instead of the default json, add "-DUSE_PROTOBUF=ON" to the first cmake above
