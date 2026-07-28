@@ -48,7 +48,10 @@ set_target_properties(
 
 target_include_directories(bmh PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
-install(TARGETS bmh LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+install(TARGETS bmh
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        PUBLIC_HEADER DESTINATION include
+)
 
 # don't overwrite the bemorehuman.conf if it already exists b/c it's likely been customised by user
 install(CODE [[
